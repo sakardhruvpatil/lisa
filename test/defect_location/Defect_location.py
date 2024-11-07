@@ -4,10 +4,13 @@ from ultralytics import YOLO
 import logging
 import datetime
 
-# Set up logging to a new file with a timestamp
+# Set up logging with timestamps for unique filenames
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 log_filename = f"bedsheet_log_{timestamp}.txt"
 defect_log_filename = f"defect_log_{timestamp}.txt"
+defect_coordinates_log_filename = f"defect_coordinates_{timestamp}.txt"
+bedsheet_areas_log_filename = f"bedsheet_areas_{timestamp}.txt"  # Unique bedsheet areas log filename
+
 logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(message)s')
 
 # Define a helper function to log and print simultaneously
@@ -43,10 +46,10 @@ total_bedsheet_area, bedsheet_count, defect_count = 0, 0, 0
 starting_edge_active, ending_edge_active, bedsheet_processing_active = False, False, False
 area_accumulating, prev_bbox = False, None
 
-# Open separate log files for bedsheet areas and defects
-log_file_path = 'bedsheet_areas.txt'
-log_file = open(log_file_path, 'a')
+# Open separate log files for bedsheet areas, defects, and defect coordinates
+log_file = open(bedsheet_areas_log_filename, 'a')
 defect_log_file = open(defect_log_filename, 'a')
+defect_coordinates_log_file = open(defect_coordinates_log_filename, 'a')  # File to log defect coordinates
 
 # Main processing loop
 while cap.isOpened():
@@ -145,7 +148,12 @@ while cap.isOpened():
                             unique_defect_ids.add(track_id.item())  # Track unique defect IDs
                             defect_count += 1  # Increment defect count for current bedsheet
                             cv2.rectangle(frame_resized, (x1_d, y1_d), (x2_d, y2_d), (0, 0, 255), 2)
-                    log_print(f"Defects Present - Unique IDs: {list(unique_defect_ids)}")
+                            
+                            # Log defect coordinates with unique ID in defect_coordinates_log_file
+                            defect_coordinates_log_file.write(
+                                f"Defect ID {track_id.item()}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d})\n"
+                            )
+                    log_print(f"Defects Present - Unique IDs: {list(unique_defect_ids)}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d})")
 
     # Display annotations on frame
     cv2.putText(frame_resized, f"Video FPS: {int(video_fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
@@ -173,3 +181,4 @@ cap.release()
 cv2.destroyAllWindows()
 log_file.close()
 defect_log_file.close()
+defect_coordinates_log_file.close()  # Close defect coordinates log file
