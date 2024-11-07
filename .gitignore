@@ -1,3 +1,4 @@
 # Ignore all mp4 and avi files in the project
 *.mp4
 *.avi
+*.txt
