@@ -1,0 +1,240 @@
+/* General styles */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  display: flex;
+}
+
+/* App layout */
+.app-layout {
+  display: flex;
+  height: 100vh;
+}
+
+/* Navbar styles */
+.navbar {
+  flex: 0 0 50px; /* Fixed width for navbar */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  background-color: #007bff;
+  color: white;
+  padding: 20px 0;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+}
+
+.title {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: white;
+  text-decoration: none;
+}
+
+/* Menu styling for side navbar */
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.menu span {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+  margin: 4px 0;
+  cursor: pointer;
+}
+
+/* Dropdown menu styles */
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+ul li {
+  margin: 10px 0;
+  width: 100%;
+  text-align: center;
+}
+
+a {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  display: flex;
+}
+
+a:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Main Content Section */
+.content {
+  margin-left: 50px; /* Leave space for the navbar */
+  flex: 1; /* Adjusts to take the remaining space */
+  overflow-y: auto;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+/* Webcam Section */
+.webcam-section {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 25%; /* One-third of the screen */
+  height: 100vh; /* Full viewport height */
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1; /* Ensure it stays above other content */
+}
+
+.webcam-container {
+  display: flex;
+  flex-direction: column; /* Change to row if you want side-by-side */
+  align-items: center; /* Center align both webcam feeds */
+  justify-content: center;
+  gap: 20px; /* Space between webcams */
+}
+
+/* Dashboard Content */
+.dashboard {
+  padding: 5px; /* Adjust or remove padding as needed */
+  background-color: #ffffff;
+  height: 100vh; /* Full viewport height */
+  width: 59vw; /* Full viewport width */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #333; /* Sets text color for better contrast */
+  box-sizing: border-box; /* Ensures padding doesn't affect width/height */
+}
+
+/* Main heading */
+.main-heading {
+  font-size: 24px; /* Adjust font size */
+  margin-bottom: 30px; /* Space below heading */
+  text-align: center; /* Center text */
+  width: 100%; /* Full width for heading */
+}
+
+/* Increase font size for the Acceptance Rate label */
+.acceptance-rate-display p {
+  font-size: 28px; /* Increase font size */
+  font-weight: bold; /* Make the text bold */
+  color: #333; /* Dark color for contrast */
+  margin: 0; /* Remove any extra margin */
+}
+
+/* Optional: For responsiveness, adjust the font size on smaller screens */
+@media (max-width: 768px) {
+  .acceptance-rate-display p {
+    font-size: 22px; /* Smaller font size for smaller screens */
+  }
+}
+
+/* Controls styling */
+.controls {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+}
+
+button {
+  padding: 10px 15px;
+  font-size: 18px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+ 
+  margin: 0 10px;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.speed-display {
+  font-size: 24px;
+  margin: 0 20px;
+}
+
+/* Current time styling */
+.current-time {
+  font-size: 22px;
+  margin-top: 300px;
+  margin-bottom: 0px; /* Space below the current time display */
+}
+
+/* Table styling */
+.summary-table {
+  width: 800px; /* Adjust width of the table */
+  margin-top: 10px; /* Space above the table */
+  border-collapse: collapse; /* Remove spacing between cells */
+}
+
+.summary-table th,
+.summary-table td {
+  border: 1px solid #ddd; /* Add border to cells */
+  padding: 8px; /* Cell padding */
+  text-align: center; /* Center align text in cells */
+}
+
+.summary-table th {
+  background-color: #007bff; /* Header background color */
+  color: white; /* Header text color */
+}
+
+/* Settings Page Styles */
+.settings-container {
+  padding: 20px;
+}
+
+.settings-title {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.settings-option {
+  margin: 10px 0;
+}
+
+/* Modal Styles for Acceptance Rate */
+.layout-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 300px;
+  text-align: center;
+}
+
+/* Modal buttons styling */
+.layout-modal .modal-content button {
+  width: 100%;
+  margin: 10px 0;/* General styles */
+}
