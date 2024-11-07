@@ -1,0 +1,9 @@
+Bedsheet Area Log
+==================
+Bedsheet 1: Area = 767899
+Bedsheet 2: Area = 798820
+Bedsheet 3: Area = 777097
+Bedsheet 1: Area = 789364
+Bedsheet 2: Area = 767899
+Bedsheet 3: Area = 798820
+Bedsheet 4: Area = 777097

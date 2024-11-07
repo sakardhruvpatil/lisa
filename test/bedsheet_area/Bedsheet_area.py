@@ -38,12 +38,23 @@ conf_threshold = 0.8
 # State variables
 starting_edge_active = False
 ending_edge_active = False
-bedsheet_processing_active = False  # New variable to manage processing state
+bedsheet_processing_active = False  # To manage processing state
 
 # Area calculation variables
 total_bedsheet_area = 0
 prev_bbox = None  # Previous bounding box
 area_accumulating = False
+
+# Initialize bedsheet counter
+bedsheet_count = 0
+
+# Open the text file in append mode to log bedsheet areas
+log_file_path = 'bedsheet_areas.txt'
+try:
+    log_file = open(log_file_path, 'a')  # 'a' mode appends to the file
+except IOError:
+    print(f"Error: Could not open or create {log_file_path}.")
+    exit()
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -117,7 +128,7 @@ while cap.isOpened():
 
         if bedsheet_processing_active and not ending_edge_active:
             # Ending Edge Logic
-            if y2_max < frame_height * 0.85:  # Adjusted to 0.75 for bottom 25%
+            if y2_max < frame_height * 0.75:  # Trigger when bottom edge crosses above 75%
                 ending_edge_active = True
                 area_accumulating = False  # Stop accumulating area
                 print("Ending Edge Detected")
@@ -125,12 +136,22 @@ while cap.isOpened():
                 print(f"Total Bedsheet Area at Ending Edge Appearance: {total_bedsheet_area}")
 
         if ending_edge_active:
-            if y2_max > frame_height * 0.05:
+            if y2_max > frame_height * 0.25:
                 # Continue printing "Ending Edge"
                 print("Ending Edge")
             else:
                 # Deactivate when bottom edge reaches the top 5% of the frame
                 ending_edge_active = False
+                # Increment bedsheet counter
+                bedsheet_count += 1
+                # Log the bedsheet area to the text file
+                log_entry = f"Bedsheet {bedsheet_count}: Area = {total_bedsheet_area}\n"
+                try:
+                    log_file.write(log_entry)
+                except IOError:
+                    print(f"Error: Could not write to {log_file_path}.")
+                # Print to terminal
+                print(f"Bedsheet {bedsheet_count}: Area = {total_bedsheet_area}")
                 # Reset the total area
                 total_bedsheet_area = 0
                 prev_bbox = None  # Reset previous bounding box
@@ -231,3 +252,6 @@ while cap.isOpened():
 # Release resources
 cap.release()
 cv2.destroyAllWindows()
+
+# Close the log file
+log_file.close()
