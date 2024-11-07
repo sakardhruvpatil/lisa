@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import './App.css';
 import Navbar from './Navbar';
 import About from './Pages/About';
 import Contact from './Pages/Contact';
-import Services from './Pages/Services';
+import AnalyticsData from './Pages/AnalyticsData'; // Updated import
 import WebcamCapture from './WebcamCapture';
 import Settings from './Pages/Settings';
 
@@ -36,10 +36,13 @@ const App = () => {
           <Routes>
             <Route
               path="/"
-              element={<HomeWithWebcam mode={mode} acceptanceRate={acceptanceRate} />}
+              element={<HomeWithWebcam mode={mode} acceptanceRate={acceptanceRate} cameraLayout={cameraLayout} />}
             />
             <Route path="/about" element={<About />} />
-            <Route path="/services" element={<Services />} />
+            <Route 
+              path="/AnalyticsData" 
+              element={<AnalyticsData acceptanceRate={acceptanceRate} cameraLayout={cameraLayout} />} // Pass props to AnalyticsData
+            />
             <Route path="/contact" element={<Contact />} />
             <Route
               path="/settings"
@@ -67,11 +70,11 @@ const App = () => {
 };
 
 // Component for the Home page with webcam controls
-const HomeWithWebcam = ({ mode, acceptanceRate }) => {
+const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
   const [speed, setSpeed] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  React.useEffect(() => {
+  useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -99,22 +102,27 @@ const HomeWithWebcam = ({ mode, acceptanceRate }) => {
     { accept: 15, reject: 10 },
   ];
 
+  // Determine the number of rows based on mode and layout
+  let rowsToDisplay = 1; // Default 1 row for demo mode
+  if (mode === 'production') {
+    if (cameraLayout === 'vertical') {
+      rowsToDisplay = 2; // 2 rows in vertical layout
+    } else if (cameraLayout === 'horizontal') {
+      rowsToDisplay = 1; // 1 row, 2 columns in horizontal layout
+    }
+  }
+
+  // Create an array with the number of rows to display based on `rowsToDisplay`
+  const displayedTableData = tableData.slice(0, rowsToDisplay);
+
   return (
     <div className="dashboard">
       <h1 className="main-heading">Welcome to the Dashboard</h1>
 
-      {/* Half Circle Display for Acceptance Rate */}
-      <div className="half-circle-container">
-        <div className="half-circle">
-          <p className="value-text">{acceptanceRate}%</p>
-        </div>
-      </div>
-
-      {/* Speed Controls */}
-      <div className="controls">
-        <button onClick={() => changeSpeed('decrease')}>-</button>
-        <p className="speed-display">{speed}</p>
-        <button onClick={() => changeSpeed('increase')}>+</button>
+      {/* Acceptance Rate Display (Moved above the table) */}
+      <div className="acceptance-rate-display">
+        <p>Acceptance Rate: {acceptanceRate}%</p>
+        <div className="line"></div>
       </div>
 
       {/* Current Time Display */}
@@ -123,24 +131,38 @@ const HomeWithWebcam = ({ mode, acceptanceRate }) => {
       </div>
 
       {/* Table Display */}
-      <table className="summary-table">
-        <thead>
-          <tr>
-            <th>Accept</th>
-            <th>Reject</th>
-            {mode === 'production' && <th>Total</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {tableData.map((row, index) => (
-            <tr key={index}>
-              <td>{row.accept}</td>
-              <td>{row.reject}</td>
-              {mode === 'production' && <td>{row.accept + row.reject}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-container">
+        {displayedTableData.map((row, index) => (
+          <table className="summary-table" key={index}>
+            <thead>
+              <tr>
+                <th>Accept</th>
+                <th>Reject</th>
+                {mode === 'production' && <th>Total</th>}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{row.accept}</td>
+                <td>{row.reject}</td>
+                {mode === 'production' && <td>{row.accept + row.reject}</td>}
+              </tr>
+            </tbody>
+          </table>
+        ))}
+      </div>
+
+      {/* Speed Controls */}
+      <div className="controls" style={{ marginTop: '20px' }}>
+        <button onClick={() => changeSpeed('decrease')}>-</button>
+        <p className="speed-display">{speed}</p>
+        <button onClick={() => changeSpeed('increase')}>+</button>
+      </div>
+
+      {/* Speed Button Label */}
+      <div className="speed-button-label">
+        <p>Speed Button</p>
+      </div>
 
       {/* Production Mode Popup */}
       {mode === 'production' && (
