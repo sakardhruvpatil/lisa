@@ -4,6 +4,46 @@ from ultralytics import YOLO
 import logging
 import datetime
 import numpy as np
+import snap7
+from snap7.util import set_bool
+
+# PLC connection parameters
+PLC_IP = '192.168.1.200'  # Replace with your PLC's IP address
+RACK = 0
+SLOT = 1
+
+# Create a client to connect to the PLC
+plc = snap7.client.Client()
+
+print(f"Connecting to PLC @{PLC_IP}...")
+plc.connect(PLC_IP, RACK, SLOT)
+
+if not plc.get_connected():
+    raise RuntimeError("Failed to connect to the PLC. Check IP address and network configuration.")
+
+def write_boolean_to_plc(db_number, start_byte, bool_value):
+    """
+    Writes a single boolean value to the specified DB on the Siemens S7 PLC.
+    """
+    # Define buffer size (1 boolean = 1 bit in a byte)
+    data = bytearray(1)
+    
+    # Set the boolean value into the buffer
+    set_bool(data, start_byte, 0, bool_value)
+    
+    # Write the buffer to the PLC
+    try:
+        plc.db_write(db_number, start_byte, data)
+        print(f"PLC Write {'Accepted' if bool_value else 'Rejected'}: {bool_value}")
+    except Exception as e:
+        print(f"Failed to write to the PLC: {e}")
+        raise
+
+# Example DB settings
+db_number = 1  # The DB number to write to (ensure this DB exists in the PLC)
+start_byte = 0  # Start at byte 0 (DBX0.0)
+
+write_boolean_to_plc(db_number, start_byte, False)
 
 # Set up logging with timestamps for unique filenames
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -53,7 +93,7 @@ defect_model = YOLO(
 
 # Open the video file
 video_path = (
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/media/video002.avi"
+    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/media/video001.avi"
 )
 cap = cv2.VideoCapture(video_path)
 
@@ -223,8 +263,12 @@ while cap.isOpened():
             # Compare clean percent with the threshold and determine cleanliness
             if clean_percent < CLEAN_THRESHOLD:
                 cleanliness_status = "Not Clean"
+                write_boolean_to_plc(db_number, start_byte, True)
+                print("Rejection")
             else:
                 cleanliness_status = "Clean"
+                write_boolean_to_plc(db_number, start_byte, False)
+                print("Accepted")
 
             # Log cleanliness analysis
             analysis_message = (
