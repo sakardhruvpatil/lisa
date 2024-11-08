@@ -1,8 +1,0 @@
-Bedsheet Area Log
-==================
-Bedsheet 1: Area = 822312
-Bedsheet 2: Area = 900605
-Bedsheet 3: Area = 796929
-Bedsheet 1: Area = 822312
-Bedsheet 2: Area = 900605
-Bedsheet 3: Area = 796929
