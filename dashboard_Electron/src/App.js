@@ -13,8 +13,41 @@ const App = () => {
   const location = useLocation();
   const [cameraLayout, setCameraLayout] = useState('vertical');
   const [mode, setMode] = useState('demo'); // Default to demo mode
-  const [acceptanceRate, setAcceptanceRate] = useState(50); // Default acceptance rate
+  const [acceptanceRate, setAcceptanceRate] = useState(95); // Default acceptance rate
   const [showLayoutModal, setShowLayoutModal] = useState(false);
+  const [popupWindow, setPopupWindow] = useState(null); // Track the pop-up window instance
+  const [screenResolution, setScreenResolution] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
+  // Handle screen resolution changes
+  const handleResize = () => {
+    setScreenResolution({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+  };
+
+  useEffect(() => {
+    // Add event listener for screen resize
+    window.addEventListener('resize', handleResize);
+
+    // Clean up event listener
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    console.log('Screen Resolution:', screenResolution);
+    // Adjust layout based on screen width
+    if (screenResolution.width < 600) {
+      setCameraLayout('vertical');
+    } else {
+      setCameraLayout('horizontal');
+    }
+    // Debugging log to verify camera layout change
+    console.log('Camera Layout:', cameraLayout);
+  }, [screenResolution]);
 
   const handleModeChange = (newMode) => {
     setMode(newMode);
@@ -28,9 +61,57 @@ const App = () => {
     setShowLayoutModal(false); // Close the layout modal after layout change
   };
 
+  // Function to open the pop-up with dummy values
+  const openPopup = () => {
+    // If a pop-up window exists, focus on it instead of opening a new one
+    if (popupWindow && !popupWindow.closed) {
+      popupWindow.focus();  // Bring existing pop-up to focus
+      return;
+    }
+
+    // Open a new pop-up window
+    const newPopupWindow = window.open("", "popupWindow", "width=400,height=300,scrollbars=yes");
+
+    if (newPopupWindow) {
+      setPopupWindow(newPopupWindow); // Save the window instance
+      // Dummy content for the popup
+      newPopupWindow.document.write(`
+        <html>
+          <head>
+            <title>Dummy Values</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                background-color: #f5f5f5;
+                color: #333;
+              }
+              h2 {
+                color: #007bff;
+              }
+              p {
+                font-size: 18px;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Dummy Values</h2>
+            <p>Dummy Value 1: 75%</p>
+            <p>Dummy Value 2: 80%</p>
+            <p>Dummy Value 3: 90%</p>
+          </body>
+        </html>
+      `);
+      newPopupWindow.document.close(); // Ensure the content is fully loaded
+    } else {
+      alert('Popup was blocked. Please allow popups for this site.');
+    }
+  };
+
   return (
     <div className="app-layout">
       <Navbar />
+     
       <div className="content">
         <div className="dashboard">
           <Routes>
@@ -83,14 +164,14 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 
   const changeSpeed = async (action) => {
     try {
-      const response = await fetch('http://localhost:5000/change-speed', {
+      const response = await fetch('http://localhost:5007/change-speed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
       if (!response.ok) throw new Error('Failed to change speed');
       const data = await response.json();
-      setSpeed(data.new_speed);
+      setSpeed(data.new_speed); // Assuming response has 'new_speed' field
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to change speed: ' + error.message);
@@ -98,8 +179,8 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
   };
 
   const tableData = [
-    { accept: 10, reject: 5 },
-    { accept: 15, reject: 10 },
+    { accept: 10, reject: 5, total: 15 },
+    { accept: 15, reject: 10, total: 25 },
   ];
 
   // Determine the number of rows based on mode and layout
@@ -116,6 +197,10 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
   const displayedTableData = tableData.slice(0, rowsToDisplay);
 
   return (
+
+
+
+
     <div className="dashboard">
       <h1 className="main-heading">Welcome to the Dashboard</h1>
 
@@ -164,10 +249,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
         <p>Speed Button</p>
       </div>
 
-      {/* Production Mode Popup */}
-      {mode === 'production' && (
-        <div className="popup">Production Mode Activated</div>
-      )}
+    
     </div>
   );
 };
