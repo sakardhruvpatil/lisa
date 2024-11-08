@@ -141,8 +141,12 @@ while cap.isOpened():
             starting_edge_active = False
 
         # Detect the ending edge of the bedsheet as soon as it appears
-        if tracking_active and not ending_edge_active and y2_max < frame_height * 0.75:
+        if tracking_active and not ending_edge_active and y2_max < frame_height * 0.90:
             ending_edge_active, area_accumulating = True, False
+            log_print("Ending Edge Detected")  # Ensure Ending Edge message prints
+            log_file.write("Ending Edge Detected\n")
+            log_file.flush()
+            
             log_print(f"Total Bedsheet Area at Ending Edge Appearance: {total_bedsheet_area}")
 
             # Log total defect area for this bedsheet and reset it
