@@ -28,7 +28,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "electron": "electron .",
-    "dist": "electron-builder"
+    "postinstall": "electron-builder install-app-deps"
   },
   "eslintConfig": {
     "extends": [

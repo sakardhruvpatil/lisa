@@ -32,7 +32,7 @@ async def send_data(websocket, path):
 # Start WebSocket server
 async def main():
     async with websockets.serve(send_data, "localhost", 5000):
-        print("WebSocket server started on ws://localhost:5000  ")
+        print("WebSocket server started on ws://localhost:5000")
         await asyncio.Future()  # Keep the server running forever
 
 # Run the server

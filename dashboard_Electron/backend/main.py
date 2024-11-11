@@ -1,23 +1,23 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from pymongo import MongoClient
-import datetime
+from db import collection
 
 app = FastAPI()
 
-client = MongoClient("mongodb://localhost:27017/")
-db = client["app_database"]
-collection = db["analytics_data"]
-
-class AnalyticsData(BaseModel):
-    accept: int
-    reject: int
-    date: str
-    acceptance_rate: float
+class SingleDataEntry(BaseModel):
+    type: str  # Type can be "accepted", "rejected", or "total"
+    value: int
 
 @app.post("/log-analytics-data/")
-async def log_analytics(data: AnalyticsData):
-    data_dict = data.dict()
-    data_dict["date"] = datetime.datetime.strptime(data.date, "%Y-%m-%d %H:%M:%S")  # Convert to datetime object
-    collection.insert_one(data_dict)
-    return {"message": "Data logged successfully"}
+async def add_entry(data: SingleDataEntry):
+    # Increment the specific count in MongoDB
+    if data.type in ["accepted", "rejected", "total"]:
+        collection.update_one(
+            {"_id": "countData"},
+            {"$inc": {data.type: data.value}},  # Increment the specific field
+            upsert=True
+        )
+        # Fetch updated data to return as a response
+        updated_data = collection.find_one({"_id": "countData"})
+        return {"message": "Entry added successfully", "data": updated_data}
+    return {"message": "Invalid entry type"}
