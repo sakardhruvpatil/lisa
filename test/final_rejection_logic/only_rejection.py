@@ -1,7 +1,6 @@
 import cv2
 import time
 from ultralytics import YOLO
-import logging
 import datetime
 import numpy as np
 from enum import Enum
@@ -15,34 +14,10 @@ class State(Enum):
 
 # Set up logging with timestamps for unique filenames
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-log_filename = f"bedsheet_log_{timestamp}.txt"
-defect_log_filename = f"defect_log_{timestamp}.txt"
-defect_coordinates_log_filename = f"defect_coordinates_{timestamp}.txt"
-bedsheet_areas_log_filename = f"bedsheet_areas_{timestamp}.txt"
-defect_area_log_filename = f"defect_area_{timestamp}.txt"  # Unique defect area log filename
-# Set up logging for total defect area
-total_defect_area_log_filename = f"total_defect_area_{timestamp}.txt"
-total_defect_area_log_file = open(
-    total_defect_area_log_filename, "a"
-)  # File to log total defect area for each bedsheet
-# Set up logging for defect percent
-defect_percent_log_filename = f"defect_percent_{timestamp}.txt"
-defect_percent_log_file = open(
-    defect_percent_log_filename, "a"
-)  # File to log defect percentage for each bedsheet
-# Set up logging for cleanliness analysis
-input_clean_log_filename = f"realtime_clean_{timestamp}.txt"
-input_clean_log_file = open(
-    input_clean_log_filename, "a"
-)  # File to log cleanliness analysis
-
-# Configure the main log
-logging.basicConfig(filename=log_filename, level=logging.INFO, format="%(message)s")
 
 # Define a helper function to log and print simultaneously
 def log_print(message):
     print(message)  # Print to console
-    logging.info(message)  # Write to log file
 
 # Define cleanliness threshold and default bedsheet area
 CLEAN_THRESHOLD = 95.0  # Predefined cleanliness percentage
@@ -86,13 +61,6 @@ state = State.IDLE
 display_fps, prev_time = 0, time.time()
 bedsheet_count = 0  # Start counting from 0; increment after processing
 unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
-
-# Open separate log files for bedsheet areas, defects, defect coordinates, and defect areas
-log_file = open(bedsheet_areas_log_filename, "a")
-defect_log_file = open(defect_log_filename, "a")
-defect_coordinates_log_file = open(defect_coordinates_log_filename, "a")
-# File to log defect areas
-defect_area_log_file = open(defect_area_log_filename, "a")
 
 # Dictionary to store maximum area of each unique defect ID
 defect_max_areas = {}
@@ -146,7 +114,7 @@ try:
                             bedsheet_present = True
                             x1, y1, x2, y2 = map(int, boxes[idx])
                             box_width = x2 - x1  # Width of the bounding box
-                            cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                            #cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
                             y1_positions.append(y1)
                             y2_positions.append(y2)
                             current_bbox = (x1, y1, x2, y2)
@@ -161,10 +129,6 @@ try:
                                 await_ending_edge = False  # Reset await flag
                                 display_not_clean = False
                                 log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Starting Edge Detected\n"
-                                )
-                                log_file.flush()
                                 break  # Assuming one bedsheet per frame
 
             log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
@@ -200,18 +164,16 @@ try:
                             # Track unique defect IDs for the current bedsheet
                             unique_defect_ids.add(defect_id)
 
-                            # Check if this defect ID already exists in defect_max_areas
+                            # Update maximum area for each defect ID
                             if defect_id in defect_max_areas:
-                                # Only update if the new area is larger than the last maximum area
-                                if defect_area > defect_max_areas[defect_id]:
-                                    # Adjust total_defect_area to account for the increase
-                                    total_defect_area += defect_area - defect_max_areas[defect_id]
-                                    # Update the maximum area for this defect ID
-                                    defect_max_areas[defect_id] = defect_area
+                                defect_max_areas[defect_id] = max(
+                                    defect_max_areas[defect_id], defect_area
+                                )
                             else:
-                                # New defect ID: add its area to total_defect_area and store it
                                 defect_max_areas[defect_id] = defect_area
-                                total_defect_area += defect_area
+
+                            # Update the running total defect area
+                            total_defect_area = sum(defect_max_areas.values())
 
                             # Calculate real-time clean percent based on DEFAULT_BEDSHEET_AREA
                             defect_percent_real_time = (
@@ -233,40 +195,6 @@ try:
                                     f"Clean Percent: {clean_percent_real_time:.2f}%"
                                 )
                                 log_print(analysis_message)
-                                input_clean_log_file.write(analysis_message + "\n")
-                                input_clean_log_file.flush()
-
-                                # Log defect percent and clean percent
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                                )
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                                )
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                                )
-                                defect_percent_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                    f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                                )
-                                defect_percent_log_file.flush()
-
-                                # Log bedsheet area and total defect count
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                                )
-                                defect_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                                )
-                                log_file.flush()
-                                defect_log_file.flush()
-
-                                log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
-                                )
 
                                 # Increment bedsheet count only because it's classified as "Not Clean"
                                 bedsheet_count += 1
@@ -278,10 +206,6 @@ try:
                                 defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
 
                                 log_print("Ending Edge Detection Awaited for Not Clean Decision")
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count}: Ending Edge Detection Awaited for Not Clean Decision\n"
-                                )
-                                log_file.flush()
 
                                 # **Important:** Break out of defect processing to avoid further detections in this frame
                                 break
@@ -307,18 +231,6 @@ try:
                                     0.5,
                                     (0, 0, 255),
                                     1,
-                                )
-
-                                # Log defect coordinates and area
-                                defect_area_log_file.write(
-                                    f"Bedsheet {bedsheet_count}: Defect ID {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d}) Area = {defect_area} pixels\n"
-                                )
-                                defect_coordinates_log_file.write(
-                                    f"Bedsheet {bedsheet_count}: Defect ID {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d})\n"
-                                )
-
-                                log_print(
-                                    f"Bedsheet {bedsheet_count}: Defect Present - Unique ID: {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d}) Area: {defect_area}"
                                 )
 
             # Detect ending edge to transition to IDLE or other states
@@ -357,44 +269,6 @@ try:
                                 f"Clean Percent: {clean_percent_real_time:.2f}%"
                             )
                             log_print(analysis_message)
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
-
-                            # Log defect percent and clean percent
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                            )
-                            defect_percent_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                            )
-                            defect_percent_log_file.flush()
-
-                            # Log bedsheet area and total defect count
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                            )
-                            defect_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                            )
-                            log_file.flush()
-                            defect_log_file.flush()
-
-                            log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
-                            )
-
-                            # Log cleanliness analysis to input_clean_log_file
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
 
                             # Increment bedsheet count because it's classified as "Clean"
                             bedsheet_count += 1
@@ -406,10 +280,6 @@ try:
                             defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
 
                             log_print("Ending Edge Detected and Counted as Clean")
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count}: Ending Edge Detected and Counted as Clean\n"
-                            )
-                            log_file.flush()
 
                         else:
                             # If clean percent is still below threshold upon ending edge
@@ -425,44 +295,11 @@ try:
                                 f"Clean Percent: {clean_percent_real_time:.2f}%"
                             )
                             log_print(analysis_message)
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
-
-                            # Log defect percent and clean percent
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                            )
-                            defect_percent_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                            )
-                            defect_percent_log_file.flush()
-
-                            # Log bedsheet area and total defect count
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                            )
-                            defect_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                            )
-                            log_file.flush()
-                            defect_log_file.flush()
 
                             log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
                             log_print(
                                 f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
                             )
-
-                            # Log cleanliness analysis to input_clean_log_file
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
 
                             # Increment bedsheet count only because it's classified as "Not Clean"
                             bedsheet_count += 1
@@ -474,10 +311,6 @@ try:
                             defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
 
                             log_print("Ending Edge Detected and Counted as Not Clean")
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count}: Ending Edge Detected and Counted as Not Clean\n"
-                            )
-                            log_file.flush()
 
             elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
                 # Await ending edge detection
@@ -502,48 +335,7 @@ try:
                         display_not_clean = False
                         ending_edge_detected = False  # Reset ending edge flag for next bedsheet
                         log_print("Transitioned to IDLE: Ending edge detected after Not Clean decision.")
-                        log_file.write(
-                            f"Bedsheet {bedsheet_count}: Ending Edge Detected after Not Clean Decision\n"
-                        )
-                        log_file.flush()
 
-        # Display annotations on frame
-        cv2.putText(
-            frame_resized,
-            f"Video FPS: {int(video_fps)}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            f"Display FPS: {int(display_fps)}",
-            (10, 70),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            "Bedsheet Present" if bedsheet_present else "Bedsheet Not Present",
-            (10, 110),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0) if bedsheet_present else (0, 0, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            f"Total Defect Area: {total_defect_area}",
-            (10, 270),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 255),
-            2,
-        )  # Display total defect area
 
         # Display defect percentage and clean percentage if active
         if state in [State.TRACKING_SCANNING, State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE]:
@@ -555,97 +347,23 @@ try:
                 defect_percent = 0.0
                 clean_percent = 100.0
 
-            # Display on frame
-            cv2.putText(
-                frame_resized,
-                f"Defect Percent: {defect_percent:.2f}%",
-                (10, 310),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 0),
-                2,
-            )
-            cv2.putText(
-                frame_resized,
-                f"Clean Percent: {clean_percent:.2f}%",
-                (10, 350),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
-
-            # Display cleanliness status if not already classified as Not Clean or Clean
-            if state not in [
-                State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
-                State.TRACKING_DECIDED_CLEAN,
-            ]:
-                cv2.putText(
-                    frame_resized,
-                    f"Cleanliness: {'Clean' if clean_percent >= CLEAN_THRESHOLD else 'Not Clean'}",
-                    (10, 390),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 255, 0) if clean_percent >= CLEAN_THRESHOLD else (0, 0, 255),
-                    2,
-                )
-
         # Display Starting Edge if active
         if state == State.TRACKING_SCANNING and y1_positions:
             y1_min = min(y1_positions)
             if y1_min > frame_height * 0.05:
-                cv2.putText(
-                    frame_resized,
-                    "Starting Edge",
-                    (10, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 255, 0),
-                    2,
-                )
                 log_print("Starting Edge")
 
         # Display Ending Edge if active
         if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
-            cv2.putText(
-                frame_resized,
-                "Ending Edge",
-                (10, 190),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 255),
-                2,
-            )
             log_print("Ending Edge")
-
-        # Display Accumulated Area
-        cv2.putText(
-            frame_resized,
-            f"Accumulated Area: {int(total_bedsheet_area)}",
-            (10, 230),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
 
         # Show frame even when no bedsheet is detected
         cv2.imshow("Video with FPS and Detection Status", frame_resized)
 
         # Handle display of "Not Clean" message
         if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
-            cv2.putText(
-                frame_resized,
-                "Cleanliness: Not Clean",
-                (10, 430),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 255),
-                2,
-            )
+
             log_print("Cleanliness: Not Clean")
-            input_clean_log_file.write("Cleanliness: Not Clean\n")
-            input_clean_log_file.flush()
             # Transition to IDLE after logging
             state = State.IDLE
             display_not_clean = False
@@ -653,19 +371,7 @@ try:
 
         # Handle display of "Clean" message
         if state == State.TRACKING_DECIDED_CLEAN:
-            cv2.putText(
-                frame_resized,
-                "Cleanliness: Clean",
-                (10, 430),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
             log_print("Cleanliness: Clean")
-            input_clean_log_file.write("Cleanliness: Clean\n")
-            input_clean_log_file.flush()
-            # Transition to IDLE after logging
             state = State.IDLE
             await_ending_edge = False  # Reset await flag for next bedsheet
 
@@ -680,10 +386,3 @@ finally:
     # Release resources
     cap.release()
     cv2.destroyAllWindows()
-    log_file.close()
-    defect_log_file.close()
-    defect_coordinates_log_file.close()
-    defect_area_log_file.close()
-    total_defect_area_log_file.close()
-    defect_percent_log_file.close()
-    input_clean_log_file.close()
