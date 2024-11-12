@@ -43,8 +43,10 @@ mongosh
 
 
 
-To delete a collection:  db.history.drop()
+To delete a collection:  
+    db.history.drop()
 
-To view a collection:  db.history.find().pretty()
+To view a collection:  
+    db.history.find().pretty()
 
 Replace history with your collection name.
