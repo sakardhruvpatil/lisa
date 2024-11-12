@@ -40,13 +40,12 @@ mongosh
 
     use lisa_db
 
+To delete a collection:
 
-
-
-To delete a collection:  
     db.history.drop()
 
-To view a collection:  
+To view a collection:
+
     db.history.find().pretty()
 
 Replace history with your collection name.
