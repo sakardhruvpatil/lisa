@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, WebSocket, HTTPException, Request
+from fastapi import FastAPI, Response, WebSocket, HTTPException, Request, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
@@ -85,7 +85,6 @@ def log_threshold_change(threshold_value):
     
     # Only log if the threshold value is different from the last logged value
     if last_entry is None or last_entry.get("set_threshold") != threshold_value:
-
         document = {
             "set_threshold": threshold_value,  # Store as int
             "timestamp": timestamp
@@ -94,14 +93,10 @@ def log_threshold_change(threshold_value):
         return True  # Indicates that a new threshold was logged
     return False  # No change in threshold
 
-
-
-
 # Helper function to get the current date as a string
 def get_current_date_str():
     local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
     return datetime.now(local_timezone).strftime("%Y-%m-%d")
-
 
 # Add a new threshold entry with counters for accepted and rejected
 def add_threshold_entry(date, threshold):
@@ -139,15 +134,12 @@ def initialize_history_document(date, threshold):
 def update_history(date, threshold, decision):
     # Increment total bedsheets count
     result = history_collection.update_one({"date": date}, {"$inc": {"total_bedsheets": 1}})
-    log_print(f"Incremented total_bedsheets: {result.modified_count} document(s) updated.")
     
     # Increment total accepted/rejected for the day based on decision
     if decision == "Accepted":
         result = history_collection.update_one({"date": date}, {"$inc": {"total_accepted": 1}})
-        log_print(f"Incremented total_accepted: {result.modified_count} document(s) updated.")
     else:
         result = history_collection.update_one({"date": date}, {"$inc": {"total_rejected": 1}})
-        log_print(f"Incremented total_rejected: {result.modified_count} document(s) updated.")
 
     # Fetch the current document for the specified date
     doc = history_collection.find_one({"date": date})
@@ -301,8 +293,19 @@ def log_print(message):
 # Define cleanliness threshold and default bedsheet area
 DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
-# Initial cleanliness threshold
-CLEAN_THRESHOLD = 95.0
+# Initialize cleanliness threshold from the database
+def get_last_threshold():
+    # Fetch the last threshold entry
+    last_entry = threshold_collection.find_one(sort=[("timestamp", -1)])
+    if last_entry and "set_threshold" in last_entry:
+        return last_entry["set_threshold"]
+    else:
+        # If no threshold is found, use default and log it
+        default_threshold = 95.0
+        log_threshold_change(default_threshold)
+        return default_threshold
+
+CLEAN_THRESHOLD = get_last_threshold()
 
 # New endpoint to update CLEAN_THRESHOLD from the React frontend
 @app.post("/update_threshold")
@@ -315,10 +318,83 @@ async def update_threshold(request: Request):
     if isinstance(new_threshold, (int, float)) and 0 <= new_threshold <= 100:
         CLEAN_THRESHOLD = new_threshold
         initialize_history_document(get_current_date_str(), CLEAN_THRESHOLD)
-        log_threshold_change(CLEAN_THRESHOLD)
+        threshold_logged = log_threshold_change(CLEAN_THRESHOLD)
+        if threshold_logged:
+            print(f"Threshold {CLEAN_THRESHOLD} logged in the database.")
+        else:
+            print(f"Threshold {CLEAN_THRESHOLD} is the same as the last logged threshold. Not logging.")
         return JSONResponse(content={"message": "Threshold updated successfully."})
     else:
         return JSONResponse(content={"error": "Invalid threshold value."}, status_code=400)
+
+@app.get("/get_current_threshold")
+async def get_current_threshold():
+    global CLEAN_THRESHOLD
+    return {"threshold": CLEAN_THRESHOLD}
+
+@app.get("/analytics")
+async def get_analytics(date: str = None):
+    # Build the query
+    query = {}
+    local_timezone = pytz.timezone('Asia/Kolkata')  # Use your local time zone
+    if date:
+        try:
+            # Parse the date string
+            date_obj = datetime.strptime(date, "%Y-%m-%d")
+            date_obj = local_timezone.localize(date_obj)
+            # Get the start and end of the day
+            start_of_day = datetime.combine(date_obj, datetime.time.min)
+            end_of_day = datetime.combine(date_obj, datetime.time.max)
+            query["timestamp"] = {"$gte": start_of_day, "$lte": end_of_day}
+        except ValueError:
+            return JSONResponse(content={"error": "Invalid date format. Use YYYY-MM-DD."}, status_code=400)
+    
+    # Fetch data from MongoDB
+    data = list(collection.find(query).sort("timestamp", -1))
+    # Format data for JSON response
+    response_data = []
+    for item in data:
+        response_data.append({
+            "date": item["timestamp"].strftime("%Y-%m-%d"),
+            "bedsheet_number": item["bedsheet_number"],
+            "detected_threshold": item["detected_threshold"],
+            "set_threshold": item["set_threshold"],
+            "decision": item["decision"]
+        })
+    return JSONResponse(content=response_data)
+
+@app.websocket("/ws/todays_counts")
+async def websocket_todays_counts(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            # Get today's date in 'YYYY-MM-DD' format
+            local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+            today = datetime.now(local_timezone).strftime('%Y-%m-%d')
+
+            # Fetch today's data from history_collection
+            item = history_collection.find_one({"date": today})
+
+            if item:
+                response_data = {
+                    "date": item.get("date", "Unknown"),
+                    "total_bedsheets": item.get("total_bedsheets", 0),
+                    "total_accepted": item.get("total_accepted", 0),
+                    "total_rejected": item.get("total_rejected", 0),
+                }
+            else:
+                response_data = {
+                    "date": today,
+                    "total_bedsheets": 0,
+                    "total_accepted": 0,
+                    "total_rejected": 0,
+                }
+
+            # Send the data to the client
+            await websocket.send_text(json.dumps(response_data))
+            await asyncio.sleep(1)  # Adjust the interval as needed
+    except WebSocketDisconnect:
+        print("Client disconnected")
 
 # New endpoint to fetch analytics data
 @app.get("/analytics")
@@ -374,54 +450,37 @@ async def get_daily_analytics():
 
 @app.get("/monthly_analytics")
 async def get_monthly_analytics():
-    # Get all collection names that start with 'logs_'
-    collection_names = [name for name in db.list_collection_names() if name.startswith('logs_')]
-    monthly_data = []
+    # Fetch all documents from the 'history_collection'
+    data = list(history_collection.find())
 
-    for col_name in collection_names:
-        col = db[col_name]
-        pipeline = [
-            {
-                "$group": {
-                    "_id": {
-                        "month": {"$month": "$timestamp"},
-                        "year": {"$year": "$timestamp"},
-                    },
-                    "total_bedsheets": {"$sum": 1},
-                    "accepted": {"$sum": {"$cond": [{"$eq": ["$decision", "Accepted"]}, 1, 0]}},
-                    "rejected": {"$sum": {"$cond": [{"$eq": ["$decision", "Rejected"]}, 1, 0]}},
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "month": "$_id.month",
-                    "year": "$_id.year",
-                    "total_bedsheets": 1,
-                    "accepted": 1,
-                    "rejected": 1,
-                }
-            },
-        ]
-        collection_monthly_data = list(col.aggregate(pipeline))
-        monthly_data.extend(collection_monthly_data)
+    # Prepare a dictionary to aggregate monthly data
+    monthly_aggregated = {}
 
-    # Aggregate data across all collections
-    aggregated_data = {}
-    for item in monthly_data:
-        key = (item['year'], item['month'])
-        if key not in aggregated_data:
-            aggregated_data[key] = {'accepted': 0, 'rejected': 0, 'total_bedsheets': 0}
-        aggregated_data[key]['accepted'] += item['accepted']
-        aggregated_data[key]['rejected'] += item['rejected']
-        aggregated_data[key]['total_bedsheets'] += item['total_bedsheets']
+    for item in data:
+        date_str = item.get('date', 'Unknown')
+        if date_str == 'Unknown':
+            continue  # Skip if date is unknown
 
-    # Format and sort the final data
+        # Parse the date string to get the month and year
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        month_year = date_obj.strftime('%B %Y')  # E.g., "November 2024"
+
+        if month_year not in monthly_aggregated:
+            monthly_aggregated[month_year] = {
+                'total_bedsheets': 0,
+                'accepted': 0,
+                'rejected': 0,
+            }
+
+        monthly_aggregated[month_year]['total_bedsheets'] += item.get('total_bedsheets', 0)
+        monthly_aggregated[month_year]['accepted'] += item.get('total_accepted', 0)
+        monthly_aggregated[month_year]['rejected'] += item.get('total_rejected', 0)
+
+    # Convert aggregated data into a list sorted by date
     result_data = []
-    for (year, month), counts in aggregated_data.items():
-        month_name = date(1900, month, 1).strftime('%B')
+    for month_year, counts in monthly_aggregated.items():
         result_data.append({
-            'month': f"{month_name} {year}",
+            'month': month_year,
             'total_bedsheets': counts['total_bedsheets'],
             'accepted': counts['accepted'],
             'rejected': counts['rejected']
@@ -431,6 +490,7 @@ async def get_monthly_analytics():
     result_data.sort(key=lambda x: datetime.strptime(x['month'], '%B %Y'))
 
     return JSONResponse(content=result_data)
+
 
 
 # Models
