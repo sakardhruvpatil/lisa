@@ -23,12 +23,12 @@
   "scripts": {
     "start": "npm run start-react",
     "start-react": "react-scripts start",
-    "start-backend": "./backend/server.py",
+    "start-backend": "./backend/rejection_database.py",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "electron": "electron .",
-    "dist": "electron-builder"
+    "postinstall": "electron-builder install-app-deps"
   },
   "eslintConfig": {
     "extends": [
@@ -50,7 +50,6 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
-    "electron": "^33.2.0",
     "electron-builder": "^25.1.8"
   }
 }

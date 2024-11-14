@@ -51,9 +51,17 @@ history_collection = db['history']
 def get_daily_collection():
     local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
     date_str = datetime.now(local_timezone).strftime("%Y%m%d")  # Format: YYYYMMDD
-    return db[f'logs_{date_str}']
+    daily_collection = db[f'logs_{date_str}']
 
-collection = get_daily_collection()  # Set the collection to today's date
+    # Check if the collection already has entries; if not, start bedsheet count at 1
+    global bedsheet_count
+    last_entry = daily_collection.find_one(sort=[("bedsheet_number", -1)])
+    bedsheet_count = last_entry.get("bedsheet_number", 0) + 1 if last_entry else 1
+
+    return daily_collection
+
+# Update collection to today's date and initialize bedsheet_count
+collection = get_daily_collection()  # Ensure it is refreshed daily
 
 # Fetch the last bedsheet number from the logs
 last_entry = collection.find_one(sort=[("bedsheet_number", -1)])
@@ -293,6 +301,20 @@ def log_print(message):
 # Define cleanliness threshold and default bedsheet area
 DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
+# Models
+
+# Load the trained YOLOv8 models
+bedsheet_model = YOLO(
+    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt"
+)
+defect_model = YOLO(
+    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
+)
+
+
+
+#App
+
 # Initialize cleanliness threshold from the database
 def get_last_threshold():
     # Fetch the last threshold entry
@@ -331,37 +353,6 @@ async def update_threshold(request: Request):
 async def get_current_threshold():
     global CLEAN_THRESHOLD
     return {"threshold": CLEAN_THRESHOLD}
-
-@app.get("/analytics")
-async def get_analytics(date: str = None):
-    # Build the query
-    query = {}
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Use your local time zone
-    if date:
-        try:
-            # Parse the date string
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            date_obj = local_timezone.localize(date_obj)
-            # Get the start and end of the day
-            start_of_day = datetime.combine(date_obj, datetime.time.min)
-            end_of_day = datetime.combine(date_obj, datetime.time.max)
-            query["timestamp"] = {"$gte": start_of_day, "$lte": end_of_day}
-        except ValueError:
-            return JSONResponse(content={"error": "Invalid date format. Use YYYY-MM-DD."}, status_code=400)
-    
-    # Fetch data from MongoDB
-    data = list(collection.find(query).sort("timestamp", -1))
-    # Format data for JSON response
-    response_data = []
-    for item in data:
-        response_data.append({
-            "date": item["timestamp"].strftime("%Y-%m-%d"),
-            "bedsheet_number": item["bedsheet_number"],
-            "detected_threshold": item["detected_threshold"],
-            "set_threshold": item["set_threshold"],
-            "decision": item["decision"]
-        })
-    return JSONResponse(content=response_data)
 
 @app.websocket("/ws/todays_counts")
 async def websocket_todays_counts(websocket: WebSocket):
@@ -491,19 +482,6 @@ async def get_monthly_analytics():
 
     return JSONResponse(content=result_data)
 
-
-
-# Models
-
-# Load the trained YOLOv8 models
-bedsheet_model = YOLO(
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt"
-)
-defect_model = YOLO(
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
-)
-
-# Open the video file
 # Open the camera feed (camera index 0)
 cap = cv2.VideoCapture(0)
 
