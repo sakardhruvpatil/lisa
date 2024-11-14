@@ -3,3 +3,26 @@
 *.avi
 *.txt
 *.csv
+
+# dependencies
+test/dashboard/node_modules
+test/dashboard/.pnp
+test/dashboard/.pnp.js
+test/dashboard/server/node_modules
+
+# testing
+test/dashboard/coverage/
+
+# production
+test/dashboard/build/
+
+# misc
+test/dashboard/.DS_Store
+test/dashboard/.env.local
+test/dashboard/.env.development.local
+test/dashboard/.env.test.local
+test/dashboard/.env.production.local
+
+test/dashboard/npm-debug.log*
+test/dashboard/yarn-debug.log*
+test/dashboard/yarn-error.log*

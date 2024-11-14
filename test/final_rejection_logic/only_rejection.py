@@ -35,7 +35,7 @@ defect_model = YOLO(
 video_path = (
     "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/media/video001.avi"
 )
-cap = cv2.VideoCapture(video_path)
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     log_print("Error: Could not open video.")
@@ -85,7 +85,7 @@ try:
             break
 
         # Resize frame for faster processing
-        frame_resized = cv2.resize(frame, (half_width, half_height))
+        frame_resized = cv2.resize(frame, (original_width, original_height))
         frame_height = frame_resized.shape[0]
 
         # Calculate display FPS
