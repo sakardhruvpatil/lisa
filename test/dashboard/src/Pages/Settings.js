@@ -1,6 +1,6 @@
 // Settings.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 	const [localAcceptanceRate, setLocalAcceptanceRate] = useState(acceptanceRate);
@@ -44,15 +44,9 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		setIsModalOpen(!isModalOpen);
 	};
 
-	// Function to fetch data when modal opens or date changes
-	useEffect(() => {
-		if (isModalOpen) {
-			fetchData();
-		}
-	}, [isModalOpen, selectedDate]); // Removed the eslint-disable comment
 
-	// Function to fetch data from backend
-	const fetchData = async () => {
+	// Function to fetch data from backend, memoized with useCallback
+	const fetchData = useCallback(async () => {
 		try {
 			const response = await fetch(
 				`http://localhost:8000/analytics${selectedDate ? `?date=${selectedDate}` : ''}`
@@ -63,7 +57,14 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		} catch (error) {
 			console.error('Error fetching analytics data:', error);
 		}
-	};
+	}, [selectedDate]); // Depend on selectedDate
+
+	// Function to fetch data when modal opens or date changes
+	useEffect(() => {
+		if (isModalOpen) {
+			fetchData();
+		}
+	}, [isModalOpen, fetchData]); // Removed the eslint-disable comment
 
 	const handleDateChange = (e) => {
 		const selectedDate = e.target.value; // This is in 'YYYY-MM-DD' format
