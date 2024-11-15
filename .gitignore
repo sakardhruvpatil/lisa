@@ -26,3 +26,27 @@ test/dashboard/.env.production.local
 test/dashboard/npm-debug.log*
 test/dashboard/yarn-debug.log*
 test/dashboard/yarn-error.log*
+
+
+# dependencies
+test/dashboard2/node_modules
+test/dashboard2/.pnp
+test/dashboard2/.pnp.js
+test/dashboard2/server/node_modules
+
+# testing
+test/dashboard2/coverage/
+
+# production
+test/dashboard2/build/
+
+# misc
+test/dashboard2/.DS_Store
+test/dashboard2/.env.local
+test/dashboard2/.env.development.local
+test/dashboard2/.env.test.local
+test/dashboard2/.env.production.local
+
+test/dashboard2/npm-debug.log*
+test/dashboard2/yarn-debug.log*
+test/dashboard2/yarn-error.log*

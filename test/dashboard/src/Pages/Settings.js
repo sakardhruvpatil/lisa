@@ -66,10 +66,19 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		}
 	}, [isModalOpen, fetchData]); // Removed the eslint-disable comment
 
+	// Function to handle date change and update state
 	const handleDateChange = (e) => {
-		const selectedDate = e.target.value; // This is in 'YYYY-MM-DD' format
-		setSelectedDate(selectedDate);
+		const newSelectedDate = e.target.value; // Get the new date value
+		setSelectedDate(newSelectedDate); // Update the state
 	};
+
+	// useEffect to fetch data when selectedDate changes
+	useEffect(() => {
+		if (selectedDate || isModalOpen) {
+			fetchData();
+		}
+	}, [selectedDate, fetchData, isModalOpen]);
+
 
 	return (
 		<div className="settings-container">

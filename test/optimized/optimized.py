@@ -1,85 +1,121 @@
-from fastapi import FastAPI, Response, WebSocket, HTTPException, Request, WebSocketDisconnect
-from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import time
 from ultralytics import YOLO
 import numpy as np
 import pandas as pd
 import os
-import pymongo
 from pymongo import MongoClient
-import json
-import asyncio
-import threading  # Import threading module
-from datetime import datetime, date, time, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 import pytz
-
-
 from enum import Enum
+import signal
+import sys
+from pymongo.errors import PyMongoError  # Use PyMongoError for generic exceptions
 
-app = FastAPI()
-
-# Allow CORS for frontend requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # For testing purposes; specify exact origins in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 #Finite State Machine
-# Define FSM States
 class State(Enum):
     IDLE = 0
     TRACKING_SCANNING = 1
     TRACKING_DECIDED_NOT_CLEAN_PREMATURE = 2
     TRACKING_DECIDED_CLEAN = 3
 
+# Define a bug log file
+BUG_LOG_FILE = "bug_log.txt"
+
+# Function to log bugs into the bug log file
+def log_bug(bug_message):
+    with open(BUG_LOG_FILE, "a") as f:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{timestamp} - BUG: {bug_message}\n")
+    print(f"BUG LOGGED: {bug_message}")
+
+# Define a helper function to log and print simultaneously
+def log_print(message):
+    print(message)  # Print to console
+
+# Signal handler for graceful exit
+def signal_handler(sig, frame):
+    log_print("Interrupt received. Exiting gracefully...")
+    # Release resources here if needed
+    if 'cap' in globals() and cap.isOpened():
+        cap.release()
+    cv2.destroyAllWindows()
+    sys.exit(0)
+
+# Register signal handler for Ctrl+C
+signal.signal(signal.SIGINT, signal_handler)
 
 
 #Database
 
+# MongoDB setup with bug tracking
+def connect_to_mongo():
+    max_retries = 5
+    retry_delay = 5  # seconds
+    for attempt in range(max_retries):
+        try:
+            client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=5000)  # 5 seconds timeout
+            # Force connection to verify the MongoDB server is reachable
+            client.server_info()  # This will raise an exception if the server is unreachable
+            db = client['lisa_db']
+            log_print(f"Connected to MongoDB on attempt {attempt + 1}")
+            return db
+        except PyMongoError as e:
+            log_bug(f"Attempt {attempt + 1} failed to connect to MongoDB. Exception: {e}")
+            if attempt < max_retries - 1:
+                log_print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                raise SystemExit("Unable to connect to MongoDB after multiple attempts.")
+
 # Connect to MongoDB
-client = MongoClient("mongodb://localhost:27017/")
-db = client['lisa_db']
-threshold_collection = db['threshold_changes']  # New collection for threshold changes
-history_collection = db['history']
+try:
+    db = connect_to_mongo()
+    threshold_collection = db['threshold_changes']
+    history_collection = db['history']
+except SystemExit as e:
+    log_bug(f"System exit triggered: {e}")
+    sys.exit(1)
 
-# Create a new collection for each day based on the current date
+# Daily collection
 def get_daily_collection():
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
-    date_str = datetime.now(local_timezone).strftime("%Y%m%d")  # Format: YYYYMMDD
-    daily_collection = db[f'logs_{date_str}']
+    try:
+        local_timezone = pytz.timezone('Asia/Kolkata')
+        date_str = datetime.now(local_timezone).strftime("%Y%m%d")
+        return db[f'logs_{date_str}']
+    except PyMongoError as e:
+        log_bug(f"Failed to create or access daily collection. Exception: {e}")
+        raise
 
-    # Check if the collection already has entries; if not, start bedsheet count at 1
-    global bedsheet_count
-    last_entry = daily_collection.find_one(sort=[("bedsheet_number", -1)])
-    bedsheet_count = last_entry.get("bedsheet_number", 0) + 1 if last_entry else 1
+try:
+    collection = get_daily_collection()
+except Exception as e:
+    log_bug(f"Error initializing daily collection: {e}")
+    sys.exit(1)
 
-    return daily_collection
-
-# Update collection to today's date and initialize bedsheet_count
-collection = get_daily_collection()  # Ensure it is refreshed daily
 
 # Fetch the last bedsheet number from the logs
 last_entry = collection.find_one(sort=[("bedsheet_number", -1)])
 bedsheet_count = last_entry.get("bedsheet_number", 0) if last_entry else 0  # Start from the last logged number or 0 if empty
 
 def log_to_mongo(bedsheet_number, detected_threshold, set_threshold, decision):
-    # Convert np.float32 to float and set_threshold to int for consistency
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
-    timestamp = datetime.now(local_timezone)
-    document = {
-        "bedsheet_number": int(bedsheet_number),
-        "detected_threshold": float(detected_threshold),
-        "set_threshold": int(set_threshold),  # Store as int
-        "decision": decision,
-        "timestamp": timestamp
-    }
-    # Insert document into MongoDB
-    collection.insert_one(document)
+    try:
+        # Convert np.float32 to float and set_threshold to int for consistency
+        local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+        timestamp = datetime.now(local_timezone)
+        document = {
+            "bedsheet_number": int(bedsheet_number),
+            "detected_threshold": float(detected_threshold),
+            "set_threshold": int(set_threshold),  # Store as int
+            "decision": decision,
+            "timestamp": timestamp
+        }
+        # Insert document into MongoDB
+        collection.insert_one(document)
+    except Exception as e:
+        log_bug(f"Failed to log to MongoDB. Document: {document}. Exception: {e}")
+
 
 def log_threshold_change(threshold_value):
     # Convert to int to ensure consistency
@@ -140,58 +176,62 @@ def initialize_history_document(date, threshold):
 
 
 def update_history(date, threshold, decision):
-    # Increment total bedsheets count
-    result = history_collection.update_one({"date": date}, {"$inc": {"total_bedsheets": 1}})
-    
-    # Increment total accepted/rejected for the day based on decision
-    if decision == "Accepted":
-        result = history_collection.update_one({"date": date}, {"$inc": {"total_accepted": 1}})
-    else:
-        result = history_collection.update_one({"date": date}, {"$inc": {"total_rejected": 1}})
+    try:
 
-    # Fetch the current document for the specified date
-    doc = history_collection.find_one({"date": date})
-    # Ensure the document exists before accessing its fields
-    if doc is not None:
-        thresholds = doc.get("thresholds", [])
-
-        # Check if there is an existing entry for the current threshold
-        if thresholds and thresholds[-1]["set_threshold"] == threshold:
-            log_print(f"Matching threshold found: {threshold}")
-            # Update the accepted or rejected count for the most recent threshold entry
-            if decision == "Accepted":
-                result = history_collection.update_one(
-                    {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.accepted": 1}}
-                )
-                log_print(f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
-            else:
-                result = history_collection.update_one(
-                    {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.rejected": 1}}
-                )
-                log_print(f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
+        # Increment total bedsheets count
+        result = history_collection.update_one({"date": date}, {"$inc": {"total_bedsheets": 1}})
+        
+        # Increment total accepted/rejected for the day based on decision
+        if decision == "Accepted":
+            result = history_collection.update_one({"date": date}, {"$inc": {"total_accepted": 1}})
         else:
-            log_print(f"No matching threshold found for {threshold}, adding a new threshold entry.")
-            # If the threshold has changed or if there is no previous threshold, add a new threshold entry with the current timestamp
-            add_threshold_entry(date, threshold)
+            result = history_collection.update_one({"date": date}, {"$inc": {"total_rejected": 1}})
 
-            # Initialize accepted or rejected count for the new threshold entry
-            if decision == "Accepted":
-                result = history_collection.update_one(
-                    {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.accepted": 1}}
-                )
-                log_print(f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+        # Fetch the current document for the specified date
+        doc = history_collection.find_one({"date": date})
+        # Ensure the document exists before accessing its fields
+        if doc is not None:
+            thresholds = doc.get("thresholds", [])
+
+            # Check if there is an existing entry for the current threshold
+            if thresholds and thresholds[-1]["set_threshold"] == threshold:
+                log_print(f"Matching threshold found: {threshold}")
+                # Update the accepted or rejected count for the most recent threshold entry
+                if decision == "Accepted":
+                    result = history_collection.update_one(
+                        {"date": date, "thresholds.set_threshold": threshold},
+                        {"$inc": {"thresholds.$.accepted": 1}}
+                    )
+                    log_print(f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+                else:
+                    result = history_collection.update_one(
+                        {"date": date, "thresholds.set_threshold": threshold},
+                        {"$inc": {"thresholds.$.rejected": 1}}
+                    )
+                    log_print(f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
             else:
-                result = history_collection.update_one(
-                    {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.rejected": 1}}
-                )
-                log_print(f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
-    else:
-        # If the document is missing, initialize it
-        initialize_history_document(date, threshold)
+                log_print(f"No matching threshold found for {threshold}, adding a new threshold entry.")
+                # If the threshold has changed or if there is no previous threshold, add a new threshold entry with the current timestamp
+                add_threshold_entry(date, threshold)
+
+                # Initialize accepted or rejected count for the new threshold entry
+                if decision == "Accepted":
+                    result = history_collection.update_one(
+                        {"date": date, "thresholds.set_threshold": threshold},
+                        {"$inc": {"thresholds.$.accepted": 1}}
+                    )
+                    log_print(f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+                else:
+                    result = history_collection.update_one(
+                        {"date": date, "thresholds.set_threshold": threshold},
+                        {"$inc": {"thresholds.$.rejected": 1}}
+                    )
+                    log_print(f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
+        else:
+            # If the document is missing, initialize it
+            initialize_history_document(date, threshold)
+    except Exception as e:
+        log_bug(f"Failed to update history. Date: {date}, Threshold: {threshold}, Decision: {decision}. Exception: {e}")
 
 
 
@@ -284,17 +324,8 @@ def save_history_to_csv(history_collection, filename):
 history_filename = "history.csv"
 
 
-
-#Logging
-
 # Set up logging with timestamps for unique filenames
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-# Define a helper function to log and print simultaneously
-def log_print(message):
-    print(message)  # Print to console
-
-
 
 #Defaults
 
@@ -303,17 +334,22 @@ DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
 # Models
 
-# Load the trained YOLOv8 models
-bedsheet_model = YOLO(
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt"
-)
-defect_model = YOLO(
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
-)
+# Model loading with error handling
+try:
+    bedsheet_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt")
+except Exception as e:
+    bedsheet_model = None  # Assign None if loading fails
+    log_bug(f"Failed to load bedsheet model. Exception: {e}")
+    log_print("Bedsheet model not loaded. Detection will be skipped.")
+
+try:
+    defect_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt")
+except Exception as e:
+    defect_model = None  # Assign None if loading fails
+    log_bug(f"Failed to load defect model. Exception: {e}")
+    log_print("Defect model not loaded. Detection will be skipped.")
 
 
-
-#App
 
 # Initialize cleanliness threshold from the database
 def get_last_threshold():
@@ -329,252 +365,82 @@ def get_last_threshold():
 
 CLEAN_THRESHOLD = get_last_threshold()
 
-# New endpoint to update CLEAN_THRESHOLD from the React frontend
-@app.post("/update_threshold")
-async def update_threshold(request: Request):
+# Trackbar callback to update threshold in real-time and log changes
+def update_threshold(val):
     global CLEAN_THRESHOLD
-    data = await request.json()
-    new_threshold = data.get("threshold")
-    print(f"Received new threshold: {new_threshold}")  # Logging
+    threshold_changed = log_threshold_change(val)  # Log and check for change
+    if threshold_changed:
+        CLEAN_THRESHOLD = val
+        initialize_history_document(get_current_date_str(), CLEAN_THRESHOLD)  # Initialize history only on change
+        print("Clean Threshold changed to ", CLEAN_THRESHOLD)
 
-    if isinstance(new_threshold, (int, float)) and 0 <= new_threshold <= 100:
-        CLEAN_THRESHOLD = new_threshold
-        initialize_history_document(get_current_date_str(), CLEAN_THRESHOLD)
-        threshold_logged = log_threshold_change(CLEAN_THRESHOLD)
-        if threshold_logged:
-            print(f"Threshold {CLEAN_THRESHOLD} logged in the database.")
-        else:
-            print(f"Threshold {CLEAN_THRESHOLD} is the same as the last logged threshold. Not logging.")
-        return JSONResponse(content={"message": "Threshold updated successfully."})
-    else:
-        return JSONResponse(content={"error": "Invalid threshold value."}, status_code=400)
+# Initialize the display window
+cv2.namedWindow("Video with FPS and Detection Status")
+cv2.createTrackbar("Clean Threshold", "Video with FPS and Detection Status", int(CLEAN_THRESHOLD), 100, update_threshold)
 
-@app.get("/get_current_threshold")
-async def get_current_threshold():
-    global CLEAN_THRESHOLD
-    return {"threshold": CLEAN_THRESHOLD}
+video_path = ("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/media/video001.avi")
 
-@app.websocket("/ws/todays_counts")
-async def websocket_todays_counts(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            # Get today's date in 'YYYY-MM-DD' format
-            local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
-            today = datetime.now(local_timezone).strftime('%Y-%m-%d')
+# Video capture initialization
+try:
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        raise Exception("Could not open the camera.")
+except Exception as e:
+    log_bug(f"Camera initialization failed. Exception: {e}")
+    raise
 
-            # Fetch today's data from history_collection
-            item = history_collection.find_one({"date": today})
+# Get video properties
+video_fps = cap.get(cv2.CAP_PROP_FPS) or 25
+wait_time = int(1000 / video_fps)
+original_width, original_height = (
+    int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+    int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+)
+half_width, half_height = original_width // 2, original_height // 2
+resized_dimensions = (half_width, half_height)
 
-            if item:
-                response_data = {
-                    "date": item.get("date", "Unknown"),
-                    "total_bedsheets": item.get("total_bedsheets", 0),
-                    "total_accepted": item.get("total_accepted", 0),
-                    "total_rejected": item.get("total_rejected", 0),
-                }
-            else:
-                response_data = {
-                    "date": today,
-                    "total_bedsheets": 0,
-                    "total_accepted": 0,
-                    "total_rejected": 0,
-                }
+# Detection thresholds
+conf_threshold = 0.8
+defect_conf_threshold = 0.01
 
-            # Send the data to the client
-            await websocket.send_text(json.dumps(response_data))
-            await asyncio.sleep(1)  # Adjust the interval as needed
-    except WebSocketDisconnect:
-        print("Client disconnected")
+# Initialize state
+state = State.IDLE
 
-# New endpoint to fetch analytics data
-@app.get("/analytics")
-async def get_analytics(date: str = None):
-    query = {}
-    if date:
-        try:
-            # Parse the date string into a datetime object
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
+# State-related variables
+unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
 
-            # Define UTC start and end of the day
-            start_of_day = datetime.combine(date_obj, time.min).replace(tzinfo=timezone.utc)
-            end_of_day = datetime.combine(date_obj, time.max).replace(tzinfo=timezone.utc)
+# Dictionary to store maximum area of each unique defect ID
+defect_max_areas = {}
 
-            query["timestamp"] = {"$gte": start_of_day, "$lte": end_of_day}
-        except ValueError:
-            return JSONResponse(content={"error": "Invalid date format. Use YYYY-MM-DD."}, status_code=400)
+# Reset defect tracking variables
+def reset_defect_tracking_variables():
+    global total_defect_area, unique_defect_ids, defect_max_areas
+    total_defect_area = 0
+    unique_defect_ids.clear()
+    defect_max_areas.clear()
     
-    # Fetch data from MongoDB
-    data = list(collection.find(query).sort("timestamp", -1))
+# Dictionary to store maximum area of each unique defect ID
+defect_max_areas = {}
 
-    # Format data for JSON response
-    response_data = []
-    for item in data:
-        response_data.append({
-            "date": item["timestamp"].strftime("%Y-%m-%d"),
-            "bedsheet_number": item["bedsheet_number"],
-            "detected_threshold": item["detected_threshold"],
-            "set_threshold": item["set_threshold"],
-            "decision": item["decision"]
-        })
-    return JSONResponse(content=response_data)
+# Initialize variables to track the visible bedsheet area
+total_defect_area = 0  # Initialize total defect area
+
+# Flags for state management
+await_ending_edge = False  # Flag to await ending edge after premature decision
+display_not_clean = False
+
+# Flag to track defect tracking status
+defect_tracking_error = False
 
 
-@app.get("/daily_analytics")
-async def get_daily_analytics():
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
-
-    # Format data for JSON response
-    response_data = []
-    for item in data:
-        # Ensure the date is in 'YYYY-MM-DD' format
-        date_str = item.get("date", "Unknown")
-        if isinstance(date_str, datetime):
-            date_str = date_str.strftime('%Y-%m-%d')
-        response_data.append({
-            "date": item.get("date", "Unknown"),
-            "total_bedsheets": item.get("total_bedsheets", 0),
-            "total_accepted": item.get("total_accepted", 0),
-            "total_rejected": item.get("total_rejected", 0),
-        })
-    return JSONResponse(content=response_data)
-
-@app.get("/monthly_analytics")
-async def get_monthly_analytics():
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
-
-    # Prepare a dictionary to aggregate monthly data
-    monthly_aggregated = {}
-
-    for item in data:
-        date_str = item.get('date', 'Unknown')
-        if date_str == 'Unknown':
-            continue  # Skip if date is unknown
-
-        # Parse the date string to get the month and year
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        month_year = date_obj.strftime('%B %Y')  # E.g., "November 2024"
-
-        if month_year not in monthly_aggregated:
-            monthly_aggregated[month_year] = {
-                'total_bedsheets': 0,
-                'accepted': 0,
-                'rejected': 0,
-            }
-
-        monthly_aggregated[month_year]['total_bedsheets'] += item.get('total_bedsheets', 0)
-        monthly_aggregated[month_year]['accepted'] += item.get('total_accepted', 0)
-        monthly_aggregated[month_year]['rejected'] += item.get('total_rejected', 0)
-
-    # Convert aggregated data into a list sorted by date
-    result_data = []
-    for month_year, counts in monthly_aggregated.items():
-        result_data.append({
-            'month': month_year,
-            'total_bedsheets': counts['total_bedsheets'],
-            'accepted': counts['accepted'],
-            'rejected': counts['rejected']
-        })
-
-    # Sort the result data by date
-    result_data.sort(key=lambda x: datetime.strptime(x['month'], '%B %Y'))
-
-    return JSONResponse(content=result_data)
-
-# Open the camera feed (camera index 0)
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-    print("Error: Could not open camera.")
-    exit()
-
-# Shared variables for frame processing
-latest_frame = None
-frame_lock = threading.Lock()
-
-@app.get("/video_feed")
-async def video_feed():
-    def generate():
-        while True:
-            with frame_lock:
-                if latest_frame is None:
-                    continue
-                frame = latest_frame.copy()
-            # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
-            if not ret:
-                continue
-            frame_bytes = buffer.tobytes()
-            # Yield the frame as an HTTP response for MJPEG streaming
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-#            time.sleep(0.05)  # Adjust as needed
-
-    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
-
-# WebSocket for analytics data
-@app.websocket("/ws/data")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        # Get all collection names that start with 'logs_'
-        collection_names = [name for name in db.list_collection_names() if name.startswith('logs_')]
-        all_data = []
-        for col_name in collection_names:
-            col = db[col_name]
-            latest_logs = list(col.find().sort("timestamp", -1).limit(10))
-            all_data.extend(latest_logs)
-        # Format data for JSON response
-        response_data = []
-        for item in all_data:
-            response_data.append({
-                "date": item["timestamp"].strftime("%Y-%m-%d"),
-                "bedsheet_number": item["bedsheet_number"],
-                "detected_threshold": item["detected_threshold"],
-                "set_threshold": item["set_threshold"],
-                "decision": item["decision"]
-            })
-        await websocket.send_text(json.dumps(response_data))
-        await asyncio.sleep(2)  # Adjust as needed
-
-def process_frames():
-    global latest_frame, cap, bedsheet_count  # Use global variables
-    # Get video properties
-    video_fps = cap.get(cv2.CAP_PROP_FPS) or 25
-    wait_time = int(1000 / video_fps)
-    original_width, original_height = (
-        int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-        int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-    )
-
-    # Detection thresholds
-    conf_threshold = 0.8
-    defect_conf_threshold = 0.01
-
-    # Initialize state
-    state = State.IDLE
-
-    # State-related variables
-    unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
-
-    # Dictionary to store maximum area of each unique defect ID
-    defect_max_areas = {}
-
-    # Initialize variables to track the visible bedsheet area
-    total_defect_area = 0  # Initialize total defect area
-
-    # Flags for state management
-    await_ending_edge = False  # Flag to await ending edge after premature decision
-    display_not_clean = False
-
-    # Main processing loop with new FSM structure
-    try:
-        while cap.isOpened():
+# Main loop
+try:
+    error_occurred = False  # Flag to track errors
+    while cap.isOpened():
+        try:
             ret, frame = cap.read()
-            if not ret:
-                log_print("End of video.")
+            if not ret or frame is None:
+                log_bug("Failed to read frame from camera.")
                 break
 
             # Resize frame for faster processing
@@ -588,44 +454,63 @@ def process_frames():
 
             # FSM Logic
             if state == State.IDLE:
-                # Detect starting edge to transition from IDLE to TRACKING_SCANNING
-                bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=conf_threshold, verbose=False)
+                if bedsheet_model:  # Check if bedsheet_model is loaded
+                    try:
+                        # Detect starting edge to transition from IDLE to TRACKING_SCANNING
+                        bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=conf_threshold, verbose=False)
 
-                for result in bedsheet_results:
-                    if result.boxes:
-                        boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
-                        for idx, class_id in enumerate(classes):
-                            if int(class_id) == 0 and confidences[idx] > conf_threshold:
-                                bedsheet_present = True
-                                x1, y1, x2, y2 = map(int, boxes[idx])
-                                cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                y1_positions.append(y1)
-                                y2_positions.append(y2)
+                        for result in bedsheet_results:
+                            if result.boxes:
+                                boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                                for idx, class_id in enumerate(classes):
+                                    if int(class_id) == 0 and confidences[idx] > conf_threshold:
+                                        bedsheet_present = True
+                                        x1, y1, x2, y2 = map(int, boxes[idx])
+                                        cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                        y1_positions.append(y1)
+                                        y2_positions.append(y2)
 
-                                if y1 > frame_height * 0.75:  # Starting edge detected
-                                    state = State.TRACKING_SCANNING
-                                    total_defect_area = 0
-                                    unique_defect_ids.clear()
-                                    defect_max_areas.clear()
-                                    await_ending_edge = False  # Reset await flag
-                                    display_not_clean = False
-                                    log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
-                                    break  # Assuming one bedsheet per frame
+                                        if y1 > frame_height * 0.75:  # Starting edge detected
+                                            state = State.TRACKING_SCANNING
+                                            reset_defect_tracking_variables()
+                                            await_ending_edge = False  # Reset await flag
+                                            display_not_clean = False
+                                            log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
+                                            break  # Assuming one bedsheet per frame
 
-                log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
+                        log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
+                    except Exception as e:
+                        log_bug(f"Error during bedsheet detection. Exception: {e}")
+                        log_print("Skipping bedsheet detection due to an error.")
+                else:
+                    log_print("Bedsheet detection skipped. Model not loaded.")
 
-            elif state == State.TRACKING_SCANNING:
-                # Continue tracking and scanning
-                # Detect defects and update cleanliness percentage
-                defect_results = defect_model.track(
-                    source=frame_resized,
-                    conf=defect_conf_threshold,
-                    verbose=False,
-                    persist=True,
-                    tracker="/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml",
-                )
-
-                if defect_results:
+            elif state == State.TRACKING_SCANNING and defect_model:
+                if defect_model:  # Check if defect_model is loaded                
+                    # Handle defect tracking only if no error occurred
+                    if not defect_tracking_error:
+                        try:
+                            # Perform defect tracking
+                            defect_results = defect_model.track(
+                                source=frame_resized,
+                                conf=defect_conf_threshold,
+                                verbose=False,
+                                persist=True,
+                                tracker="/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml",
+                            )
+                        except Exception as e:
+                            defect_tracking_error = True
+                            defect_results = None  # Ensure defect_results is defined
+                            log_bug(f"Defect tracking error occurred. Exception: {e}")
+                            log_print("Skipping defect detection due to an error. Feed will continue running.")
+                    else:
+                        defect_results = None  # Ensure defect_results is defined
+                        log_print("Skipping defect detection as an error was previously encountered.")
+                else:
+                    defect_results = None  # Ensure defect_results is defined
+                    log_print("Defect detection skipped. Model not loaded.")
+                    
+                if defect_results and (state == State.TRACKING_SCANNING):
                     # Count defects only within the bedsheet region
                     for defect_result in defect_results:
                         masks = defect_result.masks
@@ -641,7 +526,8 @@ def process_frames():
                                 defect_mask = mask.cpu().numpy()
                                 defect_id = tracks[j]
                                 defect_area = np.sum(defect_mask)  # Calculate defect area as the sum of mask pixels
-
+                                #del defect_mask                    
+                                
                                 # Track unique defect IDs for the current bedsheet
                                 unique_defect_ids.add(defect_id)
 
@@ -663,6 +549,22 @@ def process_frames():
                                     total_defect_area / DEFAULT_BEDSHEET_AREA
                                 ) * 100
                                 clean_percent_real_time = 100 - defect_percent_real_time
+
+                                # Immediate rejection if dirty percentage exceeds 100%
+                                if defect_percent_real_time >= 100:
+                                    state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                    log_print(f"Bedsheet {bedsheet_count + 1}: Rejected due to defect percent >= 100%")
+                                    decision = "Rejected"
+                                    log_to_mongo(bedsheet_count + 1, 100, CLEAN_THRESHOLD, decision)
+                                    update_history(get_current_date_str(), CLEAN_THRESHOLD, decision)
+                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                    bedsheet_count += 1
+                                    reset_defect_tracking_variables()
+
+                                    # Transition to IDLE after logging
+                                    state = State.IDLE
+                                    log_print("Transitioned to IDLE after rejection due to defect percent >= 100%")
+                                    break  # Exit further processing for this frame
 
                                 # Check cleanliness threshold
                                 if clean_percent_real_time < CLEAN_THRESHOLD:
@@ -688,9 +590,7 @@ def process_frames():
                                     bedsheet_count += 1  # Increment bedsheet number
 
                                     # Reset area calculations but continue tracking until ending edge
-                                    total_defect_area = 0  # Reset total defect area
-                                    unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
-                                    defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
+                                    reset_defect_tracking_variables()
 
                                     # **Important:** Break out of defect processing to avoid further detections in this frame
                                     break
@@ -765,9 +665,7 @@ def process_frames():
                                 bedsheet_count += 1  # Increment bedsheet number
 
                                 # Reset area calculations but continue tracking until ending edge
-                                total_defect_area = 0  # Reset total defect area
-                                unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
-                                defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
+                                reset_defect_tracking_variables()
 
                                 log_print("Ending Edge Detected and Counted as Clean")
 
@@ -796,9 +694,7 @@ def process_frames():
                                 bedsheet_count += 1  # Increment bedsheet number
 
                                 # Reset area calculations but continue tracking until ending edge
-                                total_defect_area = 0  # Reset total defect area
-                                unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
-                                defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
+                                reset_defect_tracking_variables()
 
                 elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
                     # Await ending edge detection
@@ -879,11 +775,8 @@ def process_frames():
                 log_print("Ending Edge")
 
             # Show frame even when no bedsheet is detected
-    #        cv2.imshow("Video with FPS and Detection Status", frame_resized)
+            cv2.imshow("Video with FPS and Detection Status", frame_resized)
 
-            # Update the latest frame to be used by the video feed endpoint
-            with frame_lock:
-                latest_frame = frame_resized.copy()
 
             # Handle display of "Not Clean" message
             if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
@@ -904,10 +797,18 @@ def process_frames():
             if cv2.waitKey(wait_time) & 0xFF == ord("q"):
                 break
 
-    except Exception as e:
-        log_print(f"An error occurred: {e}")
 
-    finally:
+
+        except Exception as e:
+            log_bug(f"Error during main loop processing. Exception: {e}")
+            error_occurred = True
+            break  # Exit the loop on error
+
+
+except Exception as e:
+    log_bug(f"Fatal error in main loop. Exception: {e}")
+finally:
+    try:
         # Release resources
     #    save_collection_to_csv(collection, logs_filename)
     #    save_collection_to_csv(threshold_collection, threshold_filename)
@@ -915,13 +816,5 @@ def process_frames():
 
         cap.release()
         cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    # Start the processing in a separate thread
-    processing_thread = threading.Thread(target=process_frames)
-    processing_thread.daemon = True  # Allow thread to exit when main program exits
-    processing_thread.start()
-
-    # Start the Uvicorn server
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    except Exception as e:
+        log_bug(f"Failed to release resources. Exception: {e}")

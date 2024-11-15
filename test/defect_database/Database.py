@@ -1,18 +1,18 @@
 import cv2
 import time
 from ultralytics import YOLO
-import logging
-import datetime
 import numpy as np
 import pandas as pd
 import os
+import pymongo
 from pymongo import MongoClient
-import datetime
-
+import threading  # Import threading module
+from datetime import datetime, date, time, timezone, timedelta
+import pytz
+from enum import Enum
+import os
 
 #Finite State Machine
-from enum import Enum
-
 # Define FSM States
 class State(Enum):
     IDLE = 0
@@ -32,23 +32,34 @@ history_collection = db['history']
 
 # Create a new collection for each day based on the current date
 def get_daily_collection():
-    date_str = datetime.datetime.now().strftime("%Y%m%d")  # Format: YYYYMMDD
-    return db[f'logs_{date_str}']
+    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    date_str = datetime.now(local_timezone).strftime("%Y%m%d")  # Format: YYYYMMDD
+    daily_collection = db[f'logs_{date_str}']
 
-collection = get_daily_collection()  # Set the collection to today's date
+    # Check if the collection already has entries; if not, start bedsheet count at 1
+    global bedsheet_count
+    last_entry = daily_collection.find_one(sort=[("bedsheet_number", -1)])
+    bedsheet_count = last_entry.get("bedsheet_number", 0) + 1 if last_entry else 1
+
+    return daily_collection
+
+# Update collection to today's date and initialize bedsheet_count
+collection = get_daily_collection()  # Ensure it is refreshed daily
 
 # Fetch the last bedsheet number from the logs
 last_entry = collection.find_one(sort=[("bedsheet_number", -1)])
-bedsheet_count = last_entry["bedsheet_number"] if last_entry else 0  # Start from the last logged number or 0 if empty
+bedsheet_count = last_entry.get("bedsheet_number", 0) if last_entry else 0  # Start from the last logged number or 0 if empty
 
 def log_to_mongo(bedsheet_number, detected_threshold, set_threshold, decision):
     # Convert np.float32 to float and set_threshold to int for consistency
+    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    timestamp = datetime.now(local_timezone)
     document = {
         "bedsheet_number": int(bedsheet_number),
         "detected_threshold": float(detected_threshold),
         "set_threshold": int(set_threshold),  # Store as int
         "decision": decision,
-        "timestamp": datetime.datetime.now()
+        "timestamp": timestamp
     }
     # Insert document into MongoDB
     collection.insert_one(document)
@@ -56,7 +67,10 @@ def log_to_mongo(bedsheet_number, detected_threshold, set_threshold, decision):
 def log_threshold_change(threshold_value):
     # Convert to int to ensure consistency
     threshold_value = int(threshold_value)
-    
+
+    local_timezone = pytz.timezone('Asia/Kolkata')
+    timestamp = datetime.now(local_timezone)
+
     # Get the last logged threshold entry
     last_entry = threshold_collection.find_one(sort=[("timestamp", -1)])
     
@@ -64,18 +78,16 @@ def log_threshold_change(threshold_value):
     if last_entry is None or last_entry.get("set_threshold") != threshold_value:
         document = {
             "set_threshold": threshold_value,  # Store as int
-            "timestamp": datetime.datetime.now()
+            "timestamp": timestamp
         }
         threshold_collection.insert_one(document)
         return True  # Indicates that a new threshold was logged
     return False  # No change in threshold
 
-
-
-
 # Helper function to get the current date as a string
 def get_current_date_str():
-    return datetime.datetime.now().strftime("%Y-%m-%d")
+    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    return datetime.now(local_timezone).strftime("%Y-%m-%d")
 
 # Add a new threshold entry with counters for accepted and rejected
 def add_threshold_entry(date, threshold):
@@ -113,55 +125,56 @@ def initialize_history_document(date, threshold):
 def update_history(date, threshold, decision):
     # Increment total bedsheets count
     result = history_collection.update_one({"date": date}, {"$inc": {"total_bedsheets": 1}})
-    log_print(f"Incremented total_bedsheets: {result.modified_count} document(s) updated.")
     
     # Increment total accepted/rejected for the day based on decision
     if decision == "Accepted":
         result = history_collection.update_one({"date": date}, {"$inc": {"total_accepted": 1}})
-        log_print(f"Incremented total_accepted: {result.modified_count} document(s) updated.")
     else:
         result = history_collection.update_one({"date": date}, {"$inc": {"total_rejected": 1}})
-        log_print(f"Incremented total_rejected: {result.modified_count} document(s) updated.")
 
     # Fetch the current document for the specified date
     doc = history_collection.find_one({"date": date})
-    thresholds = doc.get("thresholds", [])
+    # Ensure the document exists before accessing its fields
+    if doc is not None:
+        thresholds = doc.get("thresholds", [])
 
-    # Check if there is an existing entry for the current threshold
-    if thresholds and thresholds[-1]["set_threshold"] == threshold:
-        log_print(f"Matching threshold found: {threshold}")
-        # Update the accepted or rejected count for the most recent threshold entry
-        if decision == "Accepted":
-            result = history_collection.update_one(
-                {"date": date, "thresholds.set_threshold": threshold},
-                {"$inc": {"thresholds.$.accepted": 1}}
-            )
-            log_print(f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+        # Check if there is an existing entry for the current threshold
+        if thresholds and thresholds[-1]["set_threshold"] == threshold:
+            log_print(f"Matching threshold found: {threshold}")
+            # Update the accepted or rejected count for the most recent threshold entry
+            if decision == "Accepted":
+                result = history_collection.update_one(
+                    {"date": date, "thresholds.set_threshold": threshold},
+                    {"$inc": {"thresholds.$.accepted": 1}}
+                )
+                log_print(f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+            else:
+                result = history_collection.update_one(
+                    {"date": date, "thresholds.set_threshold": threshold},
+                    {"$inc": {"thresholds.$.rejected": 1}}
+                )
+                log_print(f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
         else:
-            result = history_collection.update_one(
-                {"date": date, "thresholds.set_threshold": threshold},
-                {"$inc": {"thresholds.$.rejected": 1}}
-            )
-            log_print(f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
+            log_print(f"No matching threshold found for {threshold}, adding a new threshold entry.")
+            # If the threshold has changed or if there is no previous threshold, add a new threshold entry with the current timestamp
+            add_threshold_entry(date, threshold)
+
+            # Initialize accepted or rejected count for the new threshold entry
+            if decision == "Accepted":
+                result = history_collection.update_one(
+                    {"date": date, "thresholds.set_threshold": threshold},
+                    {"$inc": {"thresholds.$.accepted": 1}}
+                )
+                log_print(f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+            else:
+                result = history_collection.update_one(
+                    {"date": date, "thresholds.set_threshold": threshold},
+                    {"$inc": {"thresholds.$.rejected": 1}}
+                )
+                log_print(f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
     else:
-        log_print(f"No matching threshold found for {threshold}, adding a new threshold entry.")
-        # If the threshold has changed or if there is no previous threshold, add a new threshold entry with the current timestamp
-        add_threshold_entry(date, threshold)
-
-        # Initialize accepted or rejected count for the new threshold entry
-        if decision == "Accepted":
-            result = history_collection.update_one(
-                {"date": date, "thresholds.set_threshold": threshold},
-                {"$inc": {"thresholds.$.accepted": 1}}
-            )
-            log_print(f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
-        else:
-            result = history_collection.update_one(
-                {"date": date, "thresholds.set_threshold": threshold},
-                {"$inc": {"thresholds.$.rejected": 1}}
-            )
-            log_print(f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
-
+        # If the document is missing, initialize it
+        initialize_history_document(date, threshold)
 
 
 
@@ -191,7 +204,9 @@ def save_collection_to_csv(collection, filename):
         combined_df.to_csv(filename, index=False)
 
 # Save 'logs' collection as a CSV with daily naming
-logs_filename = f"logs_{datetime.datetime.now().strftime('%Y%m%d')}.csv"
+local_timezone = pytz.timezone('Asia/Kolkata')  # Define at the top if not already
+logs_filename = f"logs_{datetime.now(local_timezone).strftime('%Y%m%d')}.csv"
+
 # Save 'threshold_changes' collection to a CSV file
 threshold_filename = "threshold_changes.csv"
 
@@ -256,35 +271,11 @@ history_filename = "history.csv"
 #Logging
 
 # Set up logging with timestamps for unique filenames
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-log_filename = f"bedsheet_log_{timestamp}.txt"
-defect_log_filename = f"defect_log_{timestamp}.txt"
-defect_coordinates_log_filename = f"defect_coordinates_{timestamp}.txt"
-bedsheet_areas_log_filename = f"bedsheet_areas_{timestamp}.txt"
-defect_area_log_filename = f"defect_area_{timestamp}.txt"  # Unique defect area log filename
-# Set up logging for total defect area
-total_defect_area_log_filename = f"total_defect_area_{timestamp}.txt"
-total_defect_area_log_file = open(
-    total_defect_area_log_filename, "a"
-)  # File to log total defect area for each bedsheet
-# Set up logging for defect percent
-defect_percent_log_filename = f"defect_percent_{timestamp}.txt"
-defect_percent_log_file = open(
-    defect_percent_log_filename, "a"
-)  # File to log defect percentage for each bedsheet
-# Set up logging for cleanliness analysis
-input_clean_log_filename = f"realtime_clean_{timestamp}.txt"
-input_clean_log_file = open(
-    input_clean_log_filename, "a"
-)  # File to log cleanliness analysis
-
-# Configure the main log
-logging.basicConfig(filename=log_filename, level=logging.INFO, format="%(message)s")
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # Define a helper function to log and print simultaneously
 def log_print(message):
     print(message)  # Print to console
-    logging.info(message)  # Write to log file
 
 
 
@@ -293,25 +284,7 @@ def log_print(message):
 # Define cleanliness threshold and default bedsheet area
 DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
-# Initial cleanliness threshold
-CLEAN_THRESHOLD = 95.0
-
-# Trackbar callback to update threshold in real-time and log changes
-def update_threshold(val):
-    global CLEAN_THRESHOLD
-    threshold_changed = log_threshold_change(val)  # Log and check for change
-    if threshold_changed:
-        CLEAN_THRESHOLD = val
-        initialize_history_document(get_current_date_str(), CLEAN_THRESHOLD)  # Initialize history only on change
-
-
-
-# Initialize the display window
-cv2.namedWindow("Video with FPS and Detection Status")
-cv2.createTrackbar("Clean Threshold", "Video with FPS and Detection Status", int(CLEAN_THRESHOLD), 100, update_threshold)
-
-
-#Models
+# Models
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
@@ -321,15 +294,47 @@ defect_model = YOLO(
     "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
 )
 
-# Open the video file
-video_path = (
-    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/media/video001.avi"
-)
-cap = cv2.VideoCapture(video_path)
+
+
+#App
+
+# Initialize cleanliness threshold from the database
+def get_last_threshold():
+    # Fetch the last threshold entry
+    last_entry = threshold_collection.find_one(sort=[("timestamp", -1)])
+    if last_entry and "set_threshold" in last_entry:
+        return last_entry["set_threshold"]
+    else:
+        # If no threshold is found, use default and log it
+        default_threshold = 95.0
+        log_threshold_change(default_threshold)
+        return default_threshold
+
+CLEAN_THRESHOLD = get_last_threshold()
+
+# Trackbar callback to update threshold in real-time and log changes
+def update_threshold(val):
+    global CLEAN_THRESHOLD
+    threshold_changed = log_threshold_change(val)  # Log and check for change
+    if threshold_changed:
+        CLEAN_THRESHOLD = val
+        initialize_history_document(get_current_date_str(), CLEAN_THRESHOLD)  # Initialize history only on change
+        print("Clean Threshold changed to ", CLEAN_THRESHOLD)
+
+
+
+# Initialize the display window
+cv2.namedWindow("Video with FPS and Detection Status")
+cv2.createTrackbar("Clean Threshold", "Video with FPS and Detection Status", int(CLEAN_THRESHOLD), 100, update_threshold)
+
+
+# Open the camera feed (camera index 0)
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
-    log_print("Error: Could not open video.")
+    print("Error: Could not open camera.")
     exit()
+
 
 # Get video properties
 video_fps = cap.get(cv2.CAP_PROP_FPS) or 25
@@ -338,7 +343,6 @@ original_width, original_height = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
 )
-half_width, half_height = original_width // 2, original_height // 2
 
 # Detection thresholds
 conf_threshold = 0.8
@@ -348,29 +352,17 @@ defect_conf_threshold = 0.01
 state = State.IDLE
 
 # State-related variables
-display_fps, prev_time = 0, time.time()
 unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
-
-# Open separate log files for bedsheet areas, defects, defect coordinates, and defect areas
-log_file = open(bedsheet_areas_log_filename, "a")
-defect_log_file = open(defect_log_filename, "a")
-defect_coordinates_log_file = open(defect_coordinates_log_filename, "a")
-# File to log defect areas
-defect_area_log_file = open(defect_area_log_filename, "a")
 
 # Dictionary to store maximum area of each unique defect ID
 defect_max_areas = {}
 
 # Initialize variables to track the visible bedsheet area
-previous_y2 = None  # Tracks the lowest visible y2 in the current frame
-total_bedsheet_area = 0
 total_defect_area = 0  # Initialize total defect area
 
 # Flags for state management
 await_ending_edge = False  # Flag to await ending edge after premature decision
 display_not_clean = False
-ending_edge_detected = False  # Flag to prevent multiple ending edge detections
-final_decision_made = False  # Flag to indicate if a final decision has been made
 
 # Main processing loop with new FSM structure
 try:
@@ -381,21 +373,13 @@ try:
             break
 
         # Resize frame for faster processing
-        frame_resized = cv2.resize(frame, (half_width, half_height))
+        frame_resized = cv2.resize(frame, (original_width, original_height))
         frame_height = frame_resized.shape[0]
-
-        # Calculate display FPS
-        current_time = time.time()
-        display_fps = (
-            1 / (current_time - prev_time) if (current_time - prev_time) > 0 else 0
-        )
-        prev_time = current_time
 
         # Initialize bedsheet presence flags for display
         bedsheet_present = False
         y1_positions = []
         y2_positions = []
-        current_bbox = None
 
         # FSM Logic
         if state == State.IDLE:
@@ -409,26 +393,18 @@ try:
                         if int(class_id) == 0 and confidences[idx] > conf_threshold:
                             bedsheet_present = True
                             x1, y1, x2, y2 = map(int, boxes[idx])
-                            box_width = x2 - x1  # Width of the bounding box
                             cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
                             y1_positions.append(y1)
                             y2_positions.append(y2)
-                            current_bbox = (x1, y1, x2, y2)
 
                             if y1 > frame_height * 0.75:  # Starting edge detected
                                 state = State.TRACKING_SCANNING
-                                previous_y2 = y2
-                                total_bedsheet_area = 0
                                 total_defect_area = 0
                                 unique_defect_ids.clear()
                                 defect_max_areas.clear()
                                 await_ending_edge = False  # Reset await flag
                                 display_not_clean = False
                                 log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Starting Edge Detected\n"
-                                )
-                                log_file.flush()
                                 break  # Assuming one bedsheet per frame
 
             log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
@@ -497,40 +473,6 @@ try:
                                     f"Clean Percent: {clean_percent_real_time:.2f}%"
                                 )
                                 log_print(analysis_message)
-                                input_clean_log_file.write(analysis_message + "\n")
-                                input_clean_log_file.flush()
-
-                                # Log defect percent and clean percent
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                                )
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                                )
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                                )
-                                defect_percent_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                    f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                                )
-                                defect_percent_log_file.flush()
-
-                                # Log bedsheet area and total defect count
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                                )
-                                defect_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                                )
-                                log_file.flush()
-                                defect_log_file.flush()
-
-                                log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
-                                )
 
                                 # Increment bedsheet count only because it's classified as "Not Clean"
                                 # Decision for "Not Clean"
@@ -541,16 +483,9 @@ try:
                                 bedsheet_count += 1  # Increment bedsheet number
 
                                 # Reset area calculations but continue tracking until ending edge
-                                total_bedsheet_area = 0
                                 total_defect_area = 0  # Reset total defect area
                                 unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
                                 defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
-
-                                log_print("Ending Edge Detection Awaited for Not Clean Decision")
-                                log_file.write(
-                                    f"Bedsheet {bedsheet_count}: Ending Edge Detection Awaited for Not Clean Decision\n"
-                                )
-                                log_file.flush()
 
                                 # **Important:** Break out of defect processing to avoid further detections in this frame
                                 break
@@ -576,18 +511,6 @@ try:
                                     0.5,
                                     (0, 0, 255),
                                     1,
-                                )
-
-                                # Log defect coordinates and area
-                                defect_area_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Defect ID {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d}) Area = {defect_area} pixels\n"
-                                )
-                                defect_coordinates_log_file.write(
-                                    f"Bedsheet {bedsheet_count + 1}: Defect ID {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d})\n"
-                                )
-
-                                log_print(
-                                    f"Bedsheet {bedsheet_count + 1}: Defect Present - Unique ID: {defect_id}: Coordinates ({x1_d}, {y1_d}, {x2_d}, {y2_d}) Area: {defect_area}"
                                 )
 
             # Detect ending edge to transition to IDLE or other states
@@ -627,46 +550,7 @@ try:
                                 f"Clean Percent: {clean_percent_real_time:.2f}%"
                             )
                             log_print(analysis_message)
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
 
-                            # Log defect percent and clean percent
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                            )
-                            defect_percent_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                            )
-                            defect_percent_log_file.flush()
-
-                            # Log bedsheet area and total defect count
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                            )
-                            defect_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                            )
-                            log_file.flush()
-                            defect_log_file.flush()
-
-                            log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
-                            )
-
-                            # Log cleanliness analysis to input_clean_log_file
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
-
-                            
                             # Increment bedsheet count because it's classified as "Clean"
                             # Decision for "Clean"
                             decision = "Accepted"
@@ -676,16 +560,11 @@ try:
                             bedsheet_count += 1  # Increment bedsheet number
 
                             # Reset area calculations but continue tracking until ending edge
-                            total_bedsheet_area = 0
                             total_defect_area = 0  # Reset total defect area
                             unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
                             defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
 
                             log_print("Ending Edge Detected and Counted as Clean")
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count}: Ending Edge Detected and Counted as Clean\n"
-                            )
-                            log_file.flush()
 
                         else:
                             # If clean percent is still below threshold upon ending edge
@@ -702,44 +581,6 @@ try:
                                 f"Clean Percent: {clean_percent_real_time:.2f}%"
                             )
                             log_print(analysis_message)
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
-
-                            # Log defect percent and clean percent
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defect Area = {total_defect_area}"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Defect Percent = {defect_percent_real_time:.2f}%"
-                            )
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Clean Percent = {clean_percent_real_time:.2f}%"
-                            )
-                            defect_percent_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Bedsheet Area = {DEFAULT_BEDSHEET_AREA}, "
-                                f"Total Defect Area = {total_defect_area}, Defect Percent = {defect_percent_real_time:.2f}%, "
-                                f"Clean Percent = {clean_percent_real_time:.2f}%\n"
-                            )
-                            defect_percent_log_file.flush()
-
-                            # Log bedsheet area and total defect count
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}\n"
-                            )
-                            defect_log_file.write(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}\n"
-                            )
-                            log_file.flush()
-                            defect_log_file.flush()
-
-                            log_print(f"Bedsheet {bedsheet_count + 1}: Area = {total_bedsheet_area}")
-                            log_print(
-                                f"Bedsheet {bedsheet_count + 1}: Total Defects = {len(unique_defect_ids)}"
-                            )
-
-                            # Log cleanliness analysis to input_clean_log_file
-                            input_clean_log_file.write(analysis_message + "\n")
-                            input_clean_log_file.flush()
 
                             # Increment bedsheet count only because it's classified as "Not Clean"
                             # Decision for "Not Clean"
@@ -750,16 +591,9 @@ try:
                             bedsheet_count += 1  # Increment bedsheet number
 
                             # Reset area calculations but continue tracking until ending edge
-                            total_bedsheet_area = 0
                             total_defect_area = 0  # Reset total defect area
                             unique_defect_ids.clear()  # Clear tracked defects for the next bedsheet
                             defect_max_areas.clear()  # Reset defect area tracking for the next bedsheet
-
-                            log_print("Ending Edge Detected and Counted as Not Clean")
-                            log_file.write(
-                                f"Bedsheet {bedsheet_count}: Ending Edge Detected and Counted as Not Clean\n"
-                            )
-                            log_file.flush()
 
             elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
                 # Await ending edge detection
@@ -782,50 +616,7 @@ try:
                         state = State.IDLE
                         await_ending_edge = False
                         display_not_clean = False
-                        ending_edge_detected = False  # Reset ending edge flag for next bedsheet
                         log_print("Transitioned to IDLE: Ending edge detected after Not Clean decision.")
-                        log_file.write(
-                            f"Bedsheet {bedsheet_count}: Ending Edge Detected after Not Clean Decision\n"
-                        )
-                        log_file.flush()
-
-        # Display annotations on frame
-        cv2.putText(
-            frame_resized,
-            f"Video FPS: {int(video_fps)}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            f"Display FPS: {int(display_fps)}",
-            (10, 70),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            "Bedsheet Present" if bedsheet_present else "Bedsheet Not Present",
-            (10, 110),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0) if bedsheet_present else (0, 0, 255),
-            2,
-        )
-        cv2.putText(
-            frame_resized,
-            f"Total Defect Area: {total_defect_area}",
-            (10, 270),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 255),
-            2,
-        )  # Display total defect area
 
         # Display defect percentage and clean percentage if active
         if state in [State.TRACKING_SCANNING, State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE]:
@@ -876,69 +667,19 @@ try:
         if state == State.TRACKING_SCANNING and y1_positions:
             y1_min = min(y1_positions)
             if y1_min > frame_height * 0.05:
-                cv2.putText(
-                    frame_resized,
-                    "Starting Edge",
-                    (10, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 255, 0),
-                    2,
-                )
                 log_print("Starting Edge")
 
         # Display Ending Edge if active
         if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
-            cv2.putText(
-                frame_resized,
-                "Ending Edge",
-                (10, 190),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 255),
-                2,
-            )
             log_print("Ending Edge")
-
-        # Display Accumulated Area
-        cv2.putText(
-            frame_resized,
-            f"Accumulated Area: {int(total_bedsheet_area)}",
-            (10, 230),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-        )
-
-        # Display the updated cleanliness threshold on the frame
-        cv2.putText(
-            frame_resized,
-            f"Clean Threshold: {CLEAN_THRESHOLD:.2f}%",
-            (10, 430),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (255, 255, 0),
-            2,
-        )
 
         # Show frame even when no bedsheet is detected
         cv2.imshow("Video with FPS and Detection Status", frame_resized)
 
+
         # Handle display of "Not Clean" message
         if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
-            cv2.putText(
-                frame_resized,
-                "Cleanliness: Not Clean",
-                (10, 430),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 255),
-                2,
-            )
             log_print("Cleanliness: Not Clean")
-            input_clean_log_file.write("Cleanliness: Not Clean\n")
-            input_clean_log_file.flush()
             # Transition to IDLE after logging
             state = State.IDLE
             display_not_clean = False
@@ -946,18 +687,7 @@ try:
 
         # Handle display of "Clean" message
         if state == State.TRACKING_DECIDED_CLEAN:
-            cv2.putText(
-                frame_resized,
-                "Cleanliness: Clean",
-                (10, 430),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
             log_print("Cleanliness: Clean")
-            input_clean_log_file.write("Cleanliness: Clean\n")
-            input_clean_log_file.flush()
             # Transition to IDLE after logging
             state = State.IDLE
             await_ending_edge = False  # Reset await flag for next bedsheet
@@ -977,10 +707,3 @@ finally:
 
     cap.release()
     cv2.destroyAllWindows()
-    log_file.close()
-    defect_log_file.close()
-    defect_coordinates_log_file.close()
-    defect_area_log_file.close()
-    total_defect_area_log_file.close()
-    defect_percent_log_file.close()
-    input_clean_log_file.close()
