@@ -15,8 +15,8 @@ CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
 
 # Model paths
-BEDSHEET_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt"
-DEFECT_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
+BEDSHEET_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.engine"
+DEFECT_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.engine"
 
 # Tracker path
 TRACKER_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml"

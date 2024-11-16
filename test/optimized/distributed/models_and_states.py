@@ -15,7 +15,7 @@ class State(Enum):
 # Model loading with error handling
 def load_model(model_path, model_name):
     try:
-        model = YOLO(model_path)
+        model = YOLO(model_path, task='segment')
         log_print(f"{model_name} model loaded successfully.")
         return model
     except Exception as e:
