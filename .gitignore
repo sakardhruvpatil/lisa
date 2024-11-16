@@ -3,6 +3,7 @@
 *.avi
 *.txt
 *.csv
+*.pyc
 
 # dependencies
 test/dashboard/node_modules
