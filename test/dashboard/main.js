@@ -6,11 +6,12 @@ let win;
 
 function createWindow() {
 	win = new BrowserWindow({
-		width: 1920,
-		height: 1080,
+		width: 1280,
+		height: 720,
 		webPreferences: {
 			nodeIntegration: true, // Allows Node.js features in the renderer process
 		},
+		fullscreen: true, // Ensure the window opens in fullscreen
 	});
 
 	// Load your React app from the build directory
@@ -18,6 +19,11 @@ function createWindow() {
 
 	// Uncomment the next line to load a packaged build later
 	win.loadFile(path.join(__dirname, 'build', 'index.electron.html'));
+
+	// Set zoom factor to make the app zoomed out
+	win.webContents.on('did-finish-load', () => {
+		win.webContents.setZoomFactor(0.8); // Adjust zoom level (0.8 = 80%)
+	});
 
 	win.on('closed', () => {
 		win = null;
