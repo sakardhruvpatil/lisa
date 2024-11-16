@@ -2,6 +2,7 @@
 	"name": "dashboard",
 	"version": "0.1.0",
 	"private": true,
+	"homepage": ".",
 	"main": "main.js",
 	"dependencies": {
 		"@testing-library/jest-dom": "^5.17.0",
@@ -25,9 +26,11 @@
 		"start-react": "react-scripts start",
 		"start-backend": "./backend/rejection_database.py",
 		"build": "react-scripts build",
+		"build-electron": "npm run build && cp build/index.html build/index.electron.html && sed -i 's/%PUBLIC_URL%//g' build/index.electron.html",
 		"test": "react-scripts test",
 		"eject": "react-scripts eject",
 		"electron": "electron .",
+		"electron-dev": "npm run build-electron && electron .",
 		"postinstall": "electron-builder install-app-deps"
 	},
 	"eslintConfig": {
@@ -50,6 +53,7 @@
 	},
 	"devDependencies": {
 		"concurrently": "^9.1.0",
+		"electron": "^33.2.0",
 		"electron-builder": "^25.1.8"
 	}
 }
