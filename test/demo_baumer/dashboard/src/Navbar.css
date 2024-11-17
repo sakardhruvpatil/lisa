@@ -1,0 +1,52 @@
+/* Navbar.css */
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #007bff;
+  padding: 10px 20px;
+  color: white;
+  position: relative;
+}
+
+.title {
+  font-size: 24px;
+  text-decoration: none;
+  color: white;
+}
+
+.menu {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu span {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+  margin: 4px 0;
+}
+
+.menu-items {
+  display: flex; /* Use flexbox for inline items */
+  flex-direction: column; /* Stack items vertically */
+  position: absolute; /* Positioning can be adjusted */
+  top: 60px; /* Adjust based on your navbar height */
+  right: 20px;
+  background-color: #007bff;
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.menu-items a {
+  color: white;
+  text-decoration: none;
+  padding: 8px 0; /* Add some padding for better click area */
+}
+
+.menu-items a:hover {
+  text-decoration: underline; /* Underline on hover */
+}
+

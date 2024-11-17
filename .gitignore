@@ -51,3 +51,28 @@ test/dashboard2/.env.production.local
 test/dashboard2/npm-debug.log*
 test/dashboard2/yarn-debug.log*
 test/dashboard2/yarn-error.log*
+
+
+
+# dependencies
+test/demo_baumer/dashboard/node_modules
+test/demo_baumer/dashboard/.pnp
+test/demo_baumer/dashboard/.pnp.js
+test/demo_baumer/dashboard/server/node_modules
+
+# testing
+test/demo_baumer/dashboard/coverage/
+
+# production
+test/demo_baumer/dashboard/build/
+
+# misc
+test/demo_baumer/dashboard/.DS_Store
+test/demo_baumer/dashboard/.env.local
+test/demo_baumer/dashboard/.env.development.local
+test/demo_baumer/dashboard/.env.test.local
+test/demo_baumer/dashboard/.env.production.local
+
+test/demo_baumer/dashboard/npm-debug.log*
+test/demo_baumer/dashboard/yarn-debug.log*
+test/demo_baumer/dashboard/yarn-error.log*
