@@ -12,7 +12,7 @@ from pymongo import MongoClient
 import json
 import asyncio
 import threading  # Import threading module
-from datetime import datetime, date, time, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 import pytz
 import threading
 import queue
@@ -315,10 +315,10 @@ DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt"
+    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.engine"
 )
 defect_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/defect.pt"
+    "/home/sr10/Documents/lisa/test/models/defect.engine"
 )
 
 
@@ -1035,7 +1035,7 @@ def main_loop():
             # Process each frame
             process_frame(img)
             # Resize the image to reduce window size
-#            cv2.imshow("Webcam", resized_img)
+#            cv2.imshow("Webcam", frame_resized)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             stop_event.set()

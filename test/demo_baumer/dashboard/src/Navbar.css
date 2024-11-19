@@ -2,18 +2,20 @@
 
 .navbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #007bff;
+  flex-direction: column; /* Stack items vertically */
+  align-items: center;    /* Center items horizontally */
+  justify-content: flex-start;
+  background-color:#fc981e;
   padding: 10px 20px;
   color: white;
   position: relative;
 }
 
 .title {
-  font-size: 24px;
+  font-size: 44px;
   text-decoration: none;
   color: white;
+  margin-bottom: 300px; /* Space below the title */
 }
 
 .menu {
@@ -35,7 +37,7 @@
   position: absolute; /* Positioning can be adjusted */
   top: 60px; /* Adjust based on your navbar height */
   right: 20px;
-  background-color: #007bff;
+  background-color: #fc981e;
   border-radius: 5px;
   padding: 10px;
 }
@@ -49,4 +51,3 @@
 .menu-items a:hover {
   text-decoration: underline; /* Underline on hover */
 }
-

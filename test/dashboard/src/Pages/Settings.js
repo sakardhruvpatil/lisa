@@ -81,17 +81,17 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 
 
 	return (
-		<div className="settings-container">
-			<h2>Settings</h2>
+		<div className="settings-container" style={{ marginTop: '10px' }}>
+			<h1>Settings</h1>
 
 			<div className="mode-selection">
 				<button onClick={() => setMode('demo')}>Demo Mode</button>
 				<button onClick={() => setMode('production')}>Production Mode</button>
 			</div>
 
-			<div className="acceptance-rate">
+			<div className="acceptance-rate" style={{ marginTop: '50px' }}>
 				<label>Set Acceptance Rate:</label>
-				<div className="slider-container">
+				<div className="slider-container" style={{ marginTop: '30px' }}>
 					<input
 						type="range"
 						min="0"
@@ -99,14 +99,14 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 						value={localAcceptanceRate}
 						onChange={handleSliderChange}
 					/>
-					<div className="acceptance-rate-value">{localAcceptanceRate}%</div>
+					<div className="acceptance-rate-value" style={{ marginTop: '20px' }}>{localAcceptanceRate}%</div>
 				</div>
-				<button className="save-button" onClick={handleSaveThreshold}>
+				<button className="save-button"  style={{ marginTop: '20px' }} onClick={handleSaveThreshold}>
 					Save
 				</button>
 			</div>
 
-			<div className="view-data-button">
+			<div className="view-data-button" style={{ marginTop: '50px' }}>
 				<button onClick={toggleModal}>View Data</button>
 			</div>
 

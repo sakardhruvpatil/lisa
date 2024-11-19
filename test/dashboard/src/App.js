@@ -9,6 +9,8 @@ import Contact from './Pages/Contact';
 import AnalyticsData from './Pages/AnalyticsData';
 import WebcamCapture from './WebcamCapture';
 import Settings from './Pages/Settings';
+import logo from './sakar.png'; // Import the logo image
+
 // Remove unnecessary import of HomePage
 // import HomePage from './Pages/HomePage';
 
@@ -79,6 +81,10 @@ const App = () => {
 			<Navbar />
 			<div className="content">
 				<div className="dashboard">
+					{/* Logo Section */}
+					<div className="logo-container">
+						<img src={logo} alt="Logo" className="logo" />
+					</div>
 					<Routes>
 						<Route
 							path="/"
@@ -200,16 +206,23 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 
 	return (
 		<div className="dashboard">
-			<h1 className="main-heading">Welcome to the Dashboard</h1>
-
 			<div className="acceptance-rate-display">
 				<p>Acceptance Rate: {acceptanceRate}%</p>
 				<div className="line"></div>
 			</div>
 
 			<div className="current-time">
-				<p>{currentTime.toLocaleString()}</p>
+				<p>{currentTime.toLocaleString('en-US', {
+					weekday: 'long',
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+					hour12: true
+				})}</p>
 			</div>
+
 
 			{/* Display today's data counts in a table format */}
 			<div className="table-container">
@@ -231,15 +244,16 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				</table>
 			</div>
 
-			{/* Existing controls */}
-			<div className="controls" style={{ marginTop: '20px' }}>
-				<button onClick={() => changeSpeed('decrease')}>-</button>
-				<p className="speed-display">{speed}</p>
-				<button onClick={() => changeSpeed('increase')}>+</button>
-			</div>
-
-			<div className="speed-button-label">
-				<p>Speed Button</p>
+			{/* Centered Controls */}
+			<div className="controls-container">
+				<div className="controls">
+					<button onClick={() => changeSpeed('decrease')}>-</button>
+					<p className="speed-display">{speed}</p>
+					<button onClick={() => changeSpeed('increase')}>+</button>
+				</div>
+				<div className="speed-button-label">
+					<p>Conveyor Speed</p>
+				</div>
 			</div>
 		</div>
 	);

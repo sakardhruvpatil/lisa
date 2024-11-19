@@ -13,11 +13,8 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="title">Website</Link>
+      <Link to="/" className="title">LISA</Link>
       <div className="menu" onClick={() => setMenuOpen(!menuOpen)}>
-        <span></span>
-        <span></span>
-        <span></span>
       </div>
       <ul className={menuOpen ? "open" : "closed"}>
         <li><NavLink to="/">Home</NavLink></li>
@@ -31,6 +28,5 @@ const Navbar = () => {
 };
 
 export default Navbar;
-
 
 
