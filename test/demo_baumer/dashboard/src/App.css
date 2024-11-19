@@ -126,7 +126,7 @@ a:hover {
     position: fixed;
     top: 0;
     right: 0;
-    width: 28%;
+    width: 36%;
     /* Adjust width of webcam section */
     height: 100vh;
     /* Full height */
@@ -134,7 +134,7 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 10px;
     z-index: 1;
 }
 
@@ -144,14 +144,14 @@ a:hover {
     /* Change to row for side-by-side in production */
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 5px;
 }
 
 /* Dashboard Content */
 .dashboard {
     background-color: #ffffff;
     height: 100vh;
-    width: 59vw;
+    width: 54vw;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
