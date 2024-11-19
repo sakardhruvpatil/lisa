@@ -28,6 +28,19 @@ from enum import Enum
 # Global Variables
 stop_event = threading.Event()
 
+
+def write_decision_to_file(decision):
+    # Create the file if it does not exist
+    if not os.path.exists("decision.txt"):
+        with open("decision.txt", "w") as file:
+            pass  # Create an empty file
+    
+    # Write the decision to the file
+    with open("decision.txt", "w") as file:
+        file.write(str(decision))
+
+
+
 app = FastAPI()
 
 # Allow CORS for frontend requests
@@ -309,22 +322,22 @@ def log_print(message):
 #Defaults
 
 # Define cleanliness threshold and default bedsheet area
-DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
+DEFAULT_BEDSHEET_AREA = 10000  # Predefined bedsheet area in pixels
 
 # Models
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.engine"
-)
+    "/home/sakar2/lisa-test_branch_python/test/models/bedsheet_v11_jetson.engine", task='segment')
 defect_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/defect.engine"
-)
+    "/home/sakar2/lisa-test_branch_python/test/models/defect_jetson.engine", task='segment')
 
 
 # Define the amount to crop from the left and right
-CROP_LEFT = 30  # Pixels to crop from the left
-CROP_RIGHT = 90  # Pixels to crop from the right
+CROP_LEFT = 1  # Pixels to crop from the left
+CROP_RIGHT = 1  # Pixels to crop from the right
+CROP_TOP = 130  # Pixels to crop from the top
+CROP_BOTTOM = 130  # Pixels to crop from the bottom
 
 
 class CamBuffer(neoapi.BufferBase):
@@ -348,7 +361,7 @@ def initialize_resources():
     camera = initialize_camera()
     
     # Initialize Frame Queue and Stop Event
-    frame_queue = queue.Queue(maxsize=100)
+    frame_queue = queue.Queue(maxsize=200)
     stop_event = threading.Event()
     return camera
 
@@ -393,7 +406,7 @@ def set_camera_params(camera):
         camera.f.TriggerMode.value = neoapi.TriggerMode_Off
         camera.f.ExposureAuto.SetString("Off")
         camera.f.ExposureMode.SetString("Timed")
-        camera.f.ExposureTime.Set(10000.0)
+        camera.f.ExposureTime.Set(20000.0)
         camera.f.GainAuto.SetString("Off")
         camera.f.Gain.Set(0.0)
         camera.f.LUTEnable.Set(True)
@@ -420,9 +433,12 @@ def capture_frames(camera, frame_queue, stop_event):
             img = camera.GetImage().GetNPArray()
 
             if img.size != 0:
+                # Rotate the frame 90 degrees clockwise
+                img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                
                 if frame_queue.full():
                     frame_queue.get()
-                frame_queue.put(img)
+                frame_queue.put(img_rotated)
 
         except Exception as e:
             logging.error(
@@ -430,6 +446,10 @@ def capture_frames(camera, frame_queue, stop_event):
             )
             camera.Disconnect()
             camera = initialize_camera()  # Retry initializing the camera
+        except neoapi.NoImageBufferException as e:
+            logging.error(f"NoImageBufferException: {e}. Retrying camera initialization...")
+            camera.Disconnect()
+            camera = initialize_camera()  # Reinitialize the camera
         finally:
             camera.RevokeUserBuffer(buf)  # Always revoke the buffer
 
@@ -665,12 +685,22 @@ def handle_shutdown(signal, frame):
     print("Cleanup done. Exiting...")
     sys.exit(0)
 
+# Initialize FSM state and related variables
+state = State.IDLE
+unique_defect_ids = set()
+defect_max_areas = {}
+total_defect_area = 0
+await_ending_edge = False
+display_not_clean = False
+
+# Create a lock for thread-safe access to FSM variables
+fsm_lock = threading.Lock()
+
 def detect(frame):
     global state, defect_max_areas, total_defect_area
     global await_ending_edge, display_not_clean
-    global bedsheet_count 
     global latest_frame, bedsheet_count  # Use global variables
-    global wait_time, bedsheet_count 
+    global wait_time 
 
     # Extract frame dimensions directly from the NumPy array
     # Get video properties
@@ -680,22 +710,6 @@ def detect(frame):
     # Detection thresholds
     conf_threshold = 0.8
     defect_conf_threshold = 0.01
-
-    # Initialize state
-    state = State.IDLE
-
-    # State-related variables
-    unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
-
-    # Dictionary to store maximum area of each unique defect ID
-    defect_max_areas = {}
-
-    # Initialize variables to track the visible bedsheet area
-    total_defect_area = 0  # Initialize total defect area
-
-    # Flags for state management
-    await_ending_edge = False  # Flag to await ending edge after premature decision
-    display_not_clean = False
 
     # Resize frame for faster processing
     frame_resized = frame
@@ -742,7 +756,7 @@ def detect(frame):
             conf=defect_conf_threshold,
             verbose=False,
             persist=True,
-            tracker="/home/sr10/Documents/lisa/test/models/botsort_defect.yaml",
+            tracker="/home/sakar2/lisa-test_branch_python/test/models/botsort_defect.yaml",
         )
 
         if defect_results:
@@ -789,6 +803,7 @@ def detect(frame):
                             state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
                             await_ending_edge = True
                             display_not_clean = True
+                            write_decision_to_file(False)  # Write 'False' for Not Clean decision
 
                             # Log cleanliness analysis
                             analysis_message = (
@@ -866,6 +881,7 @@ def detect(frame):
                         state = State.TRACKING_DECIDED_CLEAN
                                                     
                         display_not_clean = False  # No need to display "Not Clean"
+                        write_decision_to_file(True)  # Write 'True' for Clean decision
 
                         # Log cleanliness analysis
                         analysis_message = (
@@ -897,6 +913,7 @@ def detect(frame):
                         
                         await_ending_edge = True
                         display_not_clean = True
+                        write_decision_to_file(False)  # Write 'False' for Not Clean decision
 
                         # Log cleanliness analysis
                         analysis_message = (
@@ -998,7 +1015,7 @@ def detect(frame):
     if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
         log_print("Ending Edge")
 
-    cv2.imshow("Video with FPS and Detection Status", frame_resized)
+    #cv2.imshow("Video with FPS and Detection Status", frame_resized)
 
     # Update the latest frame to be used by the video feed endpoint
     with frame_lock:
@@ -1021,8 +1038,11 @@ def detect(frame):
     return frame_resized, bedsheet_count
 
 def process_frame(img):
+    # Crop the image from the top and bottom instead of left and right
     height, width, _ = img.shape
-    cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]
+    # Crop the image
+    cropped_img = img[CROP_TOP:height - CROP_BOTTOM, :]  # Crop top and bottom
+    #cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]
     frame_resized, bedsheet_count = detect(cropped_img)
 
 # Main Processing Loop
@@ -1035,7 +1055,7 @@ def main_loop():
             # Process each frame
             process_frame(img)
             # Resize the image to reduce window size
-#            cv2.imshow("Webcam", frame_resized)
+#            cv2.imshow("Webcam", resized_img)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             stop_event.set()

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define directories
-BACKEND_DIR=~/lisa/test/dashboard/backend
-DASHBOARD_DIR=~/lisa/test/dashboard
+BACKEND_DIR=~/lisa-test_branch_python/test/demo_baumer/dashboard/backend
+DASHBOARD_DIR=~/lisa-test_branch_python/test/demo_baumer/dashboard
 
 # Function to open a new terminal and execute a command
 open_terminal() {
@@ -19,7 +19,7 @@ sleep 5
 # Start the backend server in a new terminal
 open_terminal "cd \"$BACKEND_DIR\" && python3 rejection_database.py"
 
-sleep 5
+sleep 15
 
 # Start the dashboard server in a new terminal
 open_terminal "cd \"$DASHBOARD_DIR\" && npm run electron"

@@ -12,7 +12,7 @@ from pymongo import MongoClient
 import json
 import asyncio
 import threading  # Import threading module
-from datetime import datetime, date, time, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 import pytz
 
 
@@ -305,10 +305,10 @@ DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt"
+    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet.pt"
 )
 defect_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/defect.pt"
+    "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
 )
 
 
@@ -622,7 +622,7 @@ def process_frames():
                     conf=defect_conf_threshold,
                     verbose=False,
                     persist=True,
-                    tracker="/home/sr10/Documents/lisa/test/models/botsort_defect.yaml",
+                    tracker="/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml",
                 )
 
                 if defect_results:

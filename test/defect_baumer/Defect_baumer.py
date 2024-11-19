@@ -64,11 +64,9 @@ CROP_RIGHT = 90  # Pixels to crop from the right
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt"
-)
+    "/home/sakar2/lisa-test_branch_python/test/models/bedsheet_v11_jetson.engine")
 defect_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/defect.pt"
-)
+    "/home/sakar2/lisa-test_branch_python/test/models/defect_jetson.engine", task='segment')
 
 
 class CamBuffer(neoapi.BufferBase):
@@ -288,7 +286,7 @@ def detect(frame):
             conf=defect_conf_threshold,
             verbose=False,
             persist=True,
-            tracker="/home/sr10/Documents/lisa/test/models/botsort_defect.yaml",
+            tracker="/home/sakar2/lisa-test_branch_python/test/models/botsort_defect.yaml",
         )
 
         if defect_results:
