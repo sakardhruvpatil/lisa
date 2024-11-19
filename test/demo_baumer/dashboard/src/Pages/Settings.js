@@ -105,58 +105,6 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 					Save
 				</button>
 			</div>
-
-			<div className="view-data-button" style={{ marginTop: '50px' }}>
-				<button onClick={toggleModal}>View Data</button>
-			</div>
-
-			{/* Modal Integration */}
-			{isModalOpen && (
-				<div className="layout-modal" onClick={toggleModal}>
-					<div className="modal-content" onClick={(e) => e.stopPropagation()}>
-						<h2>Data for {selectedDate || 'All Dates'}</h2>
-						<div>
-							<input
-								type="date"
-								value={selectedDate}
-								onChange={handleDateChange}
-								placeholder="Select Date"
-							/>
-							<table className="data-table">
-								<thead>
-									<tr>
-										<th>Date</th>
-										<th>Bedsheet No.</th>
-										<th>Detected Threshold (%)</th>
-										<th>Set Threshold (%)</th>
-										<th>Decision</th>
-									</tr>
-								</thead>
-								<tbody>
-									{data.length > 0 ? (
-										data.map((row, index) => (
-											<tr key={index}>
-												<td>{row.date}</td>
-												<td>{row.bedsheet_number}</td>
-												<td>{row.detected_threshold.toFixed(2)}%</td>
-												<td>{row.set_threshold}%</td>
-												<td>{row.decision}</td>
-											</tr>
-										))
-									) : (
-										<tr>
-											<td colSpan="5">No data available for the selected date.</td>
-										</tr>
-									)}
-								</tbody>
-							</table>
-						</div>
-						<button className="close-btn" onClick={toggleModal}>
-							Close
-						</button>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 };
