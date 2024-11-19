@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define directories
-BACKEND_DIR=~/lisa-test_branch_python/test/demo_baumer/dashboard/backend
-DASHBOARD_DIR=~/lisa-test_branch_python/test/demo_baumer/dashboard
+BACKEND_DIR=~/lisa/test/demo_baumer/dashboard/backend
+DASHBOARD_DIR=~/lisa/test/demo_baumer/dashboard
 
 # Function to open a new terminal and execute a command
 open_terminal() {
