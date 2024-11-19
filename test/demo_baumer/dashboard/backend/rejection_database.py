@@ -328,9 +328,9 @@ DEFAULT_BEDSHEET_AREA = 10000  # Predefined bedsheet area in pixels
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sakar2/lisa-test_branch_python/test/models/bedsheet_v11_jetson.engine", task='segment')
+    "/home/sakar2/lisa/test/models/bedsheet_v11_jetson.engine", task='segment')
 defect_model = YOLO(
-    "/home/sakar2/lisa-test_branch_python/test/models/defect_jetson.engine", task='segment')
+    "/home/sakar2/lisa/test/models/defect_jetson.engine", task='segment')
 
 
 # Define the amount to crop from the left and right
@@ -756,7 +756,7 @@ def detect(frame):
             conf=defect_conf_threshold,
             verbose=False,
             persist=True,
-            tracker="/home/sakar2/lisa-test_branch_python/test/models/botsort_defect.yaml",
+            tracker="/home/sakar2/lisa/test/models/botsort_defect.yaml",
         )
 
         if defect_results:
