@@ -14,7 +14,6 @@ import asyncio
 import threading  # Import threading module
 from datetime import datetime, date, timezone, timedelta
 import pytz
-import threading
 import queue
 import sys
 import signal
@@ -23,7 +22,7 @@ from threading import Lock
 import logging
 import uvicorn
 from enum import Enum
-
+from motor_control import MotorSystem
 
 # Global Variables
 stop_event = threading.Event()
@@ -406,7 +405,7 @@ def set_camera_params(camera):
         camera.f.TriggerMode.value = neoapi.TriggerMode_Off
         camera.f.ExposureAuto.SetString("Off")
         camera.f.ExposureMode.SetString("Timed")
-        camera.f.ExposureTime.Set(20000.0)
+        camera.f.ExposureTime.Set(14000.0)
         camera.f.GainAuto.SetString("Off")
         camera.f.Gain.Set(0.0)
         camera.f.LUTEnable.Set(True)
@@ -803,7 +802,7 @@ def detect(frame):
                             state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
                             await_ending_edge = True
                             display_not_clean = True
-                            write_decision_to_file(False)  # Write 'False' for Not Clean decision
+                            write_decision_to_file(True)  # Write 'False' for Not Clean decision
 
                             # Log cleanliness analysis
                             analysis_message = (
@@ -881,7 +880,7 @@ def detect(frame):
                         state = State.TRACKING_DECIDED_CLEAN
                                                     
                         display_not_clean = False  # No need to display "Not Clean"
-                        write_decision_to_file(True)  # Write 'True' for Clean decision
+                        write_decision_to_file(False)  # Write 'True' for Clean decision
 
                         # Log cleanliness analysis
                         analysis_message = (
@@ -913,7 +912,7 @@ def detect(frame):
                         
                         await_ending_edge = True
                         display_not_clean = True
-                        write_decision_to_file(False)  # Write 'False' for Not Clean decision
+                        write_decision_to_file(True)  # Write 'False' for Not Clean decision
 
                         # Log cleanliness analysis
                         analysis_message = (
@@ -1046,23 +1045,36 @@ def process_frame(img):
     frame_resized, bedsheet_count = detect(cropped_img)
 
 # Main Processing Loop
-def main_loop():
-    global stop_event, bedsheet_count
-
+def main_loop(camera, buf, frame_queue, stop_event):
+    global bedsheet_count
+    print("in main loop")
+    if camera is None:
+        print("No camera initialized, exiting main loop.")
+        return  # Exit the loop if the camera is not available
+    # Make sure buf is initialized
+    if buf is None:
+        payloadsize = camera.f.PayloadSize.Get()
+        buf = CamBuffer(payloadsize)
     while not stop_event.is_set():
         if not frame_queue.empty():
             img = frame_queue.get()
-            # Process each frame
-            process_frame(img)
-            # Resize the image to reduce window size
-#            cv2.imshow("Webcam", resized_img)
-
+            try:
+                # Process each frame
+                process_frame(img)
+                # Resize the image to reduce window size
+    #            cv2.imshow("Webcam", resized_img)
+            except Exception as e:
+                logging.error(f"We have an error processing frame: {e}")
+            finally:
+                if camera:  # Ensure the camera is not None before revoking the buffer
+                    camera.RevokeUserBuffer(buf)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             stop_event.set()
             print("Stopping...")
 
     # Clean up
     if camera:
+        camera.RevokeUserBuffer(buf)
         camera.Disconnect()
     cv2.destroyAllWindows()
     print(f"Final total bedsheets counted: {bedsheet_count}")
@@ -1075,8 +1087,6 @@ signal.signal(signal.SIGTERM, handle_shutdown)
 def signal_handler(sig, frame):
     print('Signal received, stopping...')
     stop_event.set()
-
-
 
 # Function to start the Uvicorn server
 def start_uvicorn():
