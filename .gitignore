@@ -125,3 +125,31 @@ test/optimized_dashboard/webcam/.env.production.local
 test/optimized_dashboard/webcam/npm-debug.log*
 test/optimized_dashboard/webcam/yarn-debug.log*
 test/optimized_dashboard/webcam/yarn-error.log*
+
+
+
+
+# dependencies
+test/hadapsar/node_modules
+test/hadapsar/.pnp
+test/hadapsar/.pnp.js
+test/hadapsar/server/node_modules
+
+# testing
+test/hadapsar/coverage/
+
+# production
+test/hadapsar/build/
+
+# misc
+test/hadapsar/.DS_Store
+test/hadapsar/.env.local
+test/hadapsar/.env.development.local
+test/hadapsar/.env.test.local
+test/hadapsar/.env.production.local
+
+test/hadapsar/npm-debug.log*
+test/hadapsar/yarn-debug.log*
+test/hadapsar/yarn-error.log*
+
+
