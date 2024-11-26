@@ -429,7 +429,7 @@ def detect(frame):
                                         log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
                                         break  # Assuming one bedsheet per frame
 
-                    log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
+                    #log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
                 except Exception as e:
                     log_bug(f"Error during bedsheet detection. Exception: {e}")
                     log_print("Skipping bedsheet detection due to an error.")
