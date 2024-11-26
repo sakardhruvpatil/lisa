@@ -1,4 +1,11 @@
-from fastapi import FastAPI, Response, WebSocket, HTTPException, Request, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    Response,
+    WebSocket,
+    HTTPException,
+    Request,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
@@ -29,7 +36,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Finite State Machine
+
+# Finite State Machine
 # Define FSM States
 class State(Enum):
     IDLE = 0
@@ -38,20 +46,20 @@ class State(Enum):
     TRACKING_DECIDED_CLEAN = 3
 
 
-
-#Database
+# Database
 
 # Connect to MongoDB
 client = MongoClient("mongodb://localhost:27017/")
-db = client['lisa_db']
-threshold_collection = db['threshold_changes']  # New collection for threshold changes
-history_collection = db['history']
+db = client["lisa_db"]
+threshold_collection = db["threshold_changes"]  # New collection for threshold changes
+history_collection = db["history"]
+
 
 # Create a new collection for each day based on the current date
 def get_daily_collection():
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    local_timezone = pytz.timezone("Asia/Kolkata")  # Replace with your local time zone
     date_str = datetime.now(local_timezone).strftime("%Y%m%d")  # Format: YYYYMMDD
-    daily_collection = db[f'logs_{date_str}']
+    daily_collection = db[f"logs_{date_str}"]
 
     # Check if the collection already has entries; if not, start bedsheet count at 1
     global bedsheet_count
@@ -60,51 +68,58 @@ def get_daily_collection():
 
     return daily_collection
 
+
 # Update collection to today's date and initialize bedsheet_count
 collection = get_daily_collection()  # Ensure it is refreshed daily
 
 # Fetch the last bedsheet number from the logs
 last_entry = collection.find_one(sort=[("bedsheet_number", -1)])
-bedsheet_count = last_entry.get("bedsheet_number", 0) if last_entry else 0  # Start from the last logged number or 0 if empty
+bedsheet_count = (
+    last_entry.get("bedsheet_number", 0) if last_entry else 0
+)  # Start from the last logged number or 0 if empty
+
 
 def log_to_mongo(bedsheet_number, detected_threshold, set_threshold, decision):
     # Convert np.float32 to float and set_threshold to int for consistency
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    local_timezone = pytz.timezone("Asia/Kolkata")  # Replace with your local time zone
     timestamp = datetime.now(local_timezone)
     document = {
         "bedsheet_number": int(bedsheet_number),
         "detected_threshold": float(detected_threshold),
         "set_threshold": int(set_threshold),  # Store as int
         "decision": decision,
-        "timestamp": timestamp
+        "timestamp": timestamp,
     }
     # Insert document into MongoDB
     collection.insert_one(document)
+
 
 def log_threshold_change(threshold_value):
     # Convert to int to ensure consistency
     threshold_value = int(threshold_value)
 
-    local_timezone = pytz.timezone('Asia/Kolkata')
+    local_timezone = pytz.timezone("Asia/Kolkata")
     timestamp = datetime.now(local_timezone)
 
     # Get the last logged threshold entry
     last_entry = threshold_collection.find_one(sort=[("timestamp", -1)])
-    
+
     # Only log if the threshold value is different from the last logged value
     if last_entry is None or last_entry.get("set_threshold") != threshold_value:
         document = {
             "set_threshold": threshold_value,  # Store as int
-            "timestamp": timestamp
+            "timestamp": timestamp,
         }
         threshold_collection.insert_one(document)
         return True  # Indicates that a new threshold was logged
     return False  # No change in threshold
 
+
 # Helper function to get the current date as a string
 def get_current_date_str():
-    local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
+    local_timezone = pytz.timezone("Asia/Kolkata")  # Replace with your local time zone
     return datetime.now(local_timezone).strftime("%Y-%m-%d")
+
 
 # Add a new threshold entry with counters for accepted and rejected
 def add_threshold_entry(date, threshold):
@@ -118,8 +133,9 @@ def add_threshold_entry(date, threshold):
                     "rejected": 0,
                 }
             }
-        }
+        },
     )
+
 
 # Initialize the history document for the current date if it doesn't exist
 def initialize_history_document(date, threshold):
@@ -131,23 +147,29 @@ def initialize_history_document(date, threshold):
                 "total_bedsheets": 0,
                 "total_accepted": 0,
                 "total_rejected": 0,
-                "thresholds": []
+                "thresholds": [],
             }
         },
-        upsert=True
+        upsert=True,
     )
     # Removed the automatic addition of a threshold entry
 
 
 def update_history(date, threshold, decision):
     # Increment total bedsheets count
-    result = history_collection.update_one({"date": date}, {"$inc": {"total_bedsheets": 1}})
-    
+    result = history_collection.update_one(
+        {"date": date}, {"$inc": {"total_bedsheets": 1}}
+    )
+
     # Increment total accepted/rejected for the day based on decision
     if decision == "Accepted":
-        result = history_collection.update_one({"date": date}, {"$inc": {"total_accepted": 1}})
+        result = history_collection.update_one(
+            {"date": date}, {"$inc": {"total_accepted": 1}}
+        )
     else:
-        result = history_collection.update_one({"date": date}, {"$inc": {"total_rejected": 1}})
+        result = history_collection.update_one(
+            {"date": date}, {"$inc": {"total_rejected": 1}}
+        )
 
     # Fetch the current document for the specified date
     doc = history_collection.find_one({"date": date})
@@ -162,17 +184,23 @@ def update_history(date, threshold, decision):
             if decision == "Accepted":
                 result = history_collection.update_one(
                     {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.accepted": 1}}
+                    {"$inc": {"thresholds.$.accepted": 1}},
                 )
-                log_print(f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+                log_print(
+                    f"Incremented thresholds.$.accepted: {result.modified_count} document(s) updated."
+                )
             else:
                 result = history_collection.update_one(
                     {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.rejected": 1}}
+                    {"$inc": {"thresholds.$.rejected": 1}},
                 )
-                log_print(f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
+                log_print(
+                    f"Incremented thresholds.$.rejected: {result.modified_count} document(s) updated."
+                )
         else:
-            log_print(f"No matching threshold found for {threshold}, adding a new threshold entry.")
+            log_print(
+                f"No matching threshold found for {threshold}, adding a new threshold entry."
+            )
             # If the threshold has changed or if there is no previous threshold, add a new threshold entry with the current timestamp
             add_threshold_entry(date, threshold)
 
@@ -180,22 +208,26 @@ def update_history(date, threshold, decision):
             if decision == "Accepted":
                 result = history_collection.update_one(
                     {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.accepted": 1}}
+                    {"$inc": {"thresholds.$.accepted": 1}},
                 )
-                log_print(f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated.")
+                log_print(
+                    f"Added and incremented thresholds.$.accepted: {result.modified_count} document(s) updated."
+                )
             else:
                 result = history_collection.update_one(
                     {"date": date, "thresholds.set_threshold": threshold},
-                    {"$inc": {"thresholds.$.rejected": 1}}
+                    {"$inc": {"thresholds.$.rejected": 1}},
                 )
-                log_print(f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated.")
+                log_print(
+                    f"Added and incremented thresholds.$.rejected: {result.modified_count} document(s) updated."
+                )
     else:
         # If the document is missing, initialize it
         initialize_history_document(date, threshold)
 
 
+# CSV saving
 
-#CSV saving
 
 # Function to save MongoDB collection to a CSV file
 def save_collection_to_csv(collection, filename):
@@ -203,29 +235,35 @@ def save_collection_to_csv(collection, filename):
     if data:
         df = pd.DataFrame(data)
         # Drop MongoDB-specific '_id' column if it exists
-        if '_id' in df.columns:
-            df.drop(columns=['_id'], inplace=True)
-        
+        if "_id" in df.columns:
+            df.drop(columns=["_id"], inplace=True)
+
         # Handle unhashable types by excluding them from duplicates check
-        unhashable_columns = [col for col in df.columns if isinstance(df[col].iloc[0], list)]
+        unhashable_columns = [
+            col for col in df.columns if isinstance(df[col].iloc[0], list)
+        ]
         if os.path.exists(filename):
             # If file exists, update it by appending new data
             df_existing = pd.read_csv(filename)
             # Avoid duplicating rows by checking for existing data, ignoring unhashable columns
             combined_df = pd.concat([df_existing, df])
-            combined_df = combined_df.drop_duplicates(subset=[col for col in df.columns if col not in unhashable_columns])
+            combined_df = combined_df.drop_duplicates(
+                subset=[col for col in df.columns if col not in unhashable_columns]
+            )
         else:
             combined_df = df
-        
+
         # Save the combined DataFrame back to CSV
         combined_df.to_csv(filename, index=False)
 
+
 # Save 'logs' collection as a CSV with daily naming
-local_timezone = pytz.timezone('Asia/Kolkata')  # Define at the top if not already
+local_timezone = pytz.timezone("Asia/Kolkata")  # Define at the top if not already
 logs_filename = f"logs_{datetime.now(local_timezone).strftime('%Y%m%d')}.csv"
 
 # Save 'threshold_changes' collection to a CSV file
 threshold_filename = "threshold_changes.csv"
+
 
 # Function to save the 'history' collection in a table-like format
 def save_history_to_csv(history_collection, filename):
@@ -237,41 +275,45 @@ def save_history_to_csv(history_collection, filename):
         total_bedsheets = entry.get("total_bedsheets", 0)
         total_accepted = entry.get("total_accepted", 0)
         total_rejected = entry.get("total_rejected", 0)
-        
+
         # Main row with the date and total values
-        rows.append({
-            "Date": date,
-            "Total Bedsheets": total_bedsheets,
-            "Total Accepted": total_accepted,
-            "Total Rejected": total_rejected,
-            "Threshold": "",  # Empty for the main row
-            "Accepted": "",
-            "Rejected": "",
-        })
-        
+        rows.append(
+            {
+                "Date": date,
+                "Total Bedsheets": total_bedsheets,
+                "Total Accepted": total_accepted,
+                "Total Rejected": total_rejected,
+                "Threshold": "",  # Empty for the main row
+                "Accepted": "",
+                "Rejected": "",
+            }
+        )
+
         # Subsequent rows for each threshold entry within the date
         for threshold_entry in entry.get("thresholds", []):
-            rows.append({
-                "Date": "",  # Empty to avoid repeating the date
-                "Total Bedsheets": "",  # Empty for threshold sub-row
-                "Total Accepted": "",  # Empty for threshold sub-row
-                "Total Rejected": "",  # Empty for threshold sub-row
-                "Threshold": threshold_entry.get("set_threshold"),
-                "Accepted": threshold_entry.get("accepted", 0),
-                "Rejected": threshold_entry.get("rejected", 0),
-            })
-    
+            rows.append(
+                {
+                    "Date": "",  # Empty to avoid repeating the date
+                    "Total Bedsheets": "",  # Empty for threshold sub-row
+                    "Total Accepted": "",  # Empty for threshold sub-row
+                    "Total Rejected": "",  # Empty for threshold sub-row
+                    "Threshold": threshold_entry.get("set_threshold"),
+                    "Accepted": threshold_entry.get("accepted", 0),
+                    "Rejected": threshold_entry.get("rejected", 0),
+                }
+            )
+
     # Create DataFrame from formatted data
     new_df = pd.DataFrame(rows)
 
     if os.path.exists(filename):
         # Load existing CSV data
         existing_df = pd.read_csv(filename)
-        
+
         # Remove any rows in existing_df that have the same date as in new_df
-        unique_dates = new_df['Date'].dropna().unique()
-        existing_df = existing_df[~existing_df['Date'].isin(unique_dates)]
-        
+        unique_dates = new_df["Date"].dropna().unique()
+        existing_df = existing_df[~existing_df["Date"].isin(unique_dates)]
+
         # Concatenate and remove duplicates based on all columns to keep only latest
         combined_df = pd.concat([existing_df, new_df]).reset_index(drop=True)
     else:
@@ -280,23 +322,23 @@ def save_history_to_csv(history_collection, filename):
     # Save the combined DataFrame to CSV
     combined_df.to_csv(filename, index=False)
 
+
 # Usage:
 history_filename = "history.csv"
 
 
-
-#Logging
+# Logging
 
 # Set up logging with timestamps for unique filenames
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 # Define a helper function to log and print simultaneously
 def log_print(message):
     print(message)  # Print to console
 
 
-
-#Defaults
+# Defaults
 
 # Define cleanliness threshold and default bedsheet area
 DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
@@ -304,16 +346,12 @@ DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 # Models
 
 # Load the trained YOLOv8 models
-bedsheet_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt"
-)
-defect_model = YOLO(
-    "/home/sr10/Documents/lisa/test/models/defect.pt"
-)
+bedsheet_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.pt")
+defect_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt")
 
 
+# App
 
-#App
 
 # Initialize cleanliness threshold from the database
 def get_last_threshold():
@@ -327,7 +365,9 @@ def get_last_threshold():
         log_threshold_change(default_threshold)
         return default_threshold
 
+
 CLEAN_THRESHOLD = get_last_threshold()
+
 
 # New endpoint to update CLEAN_THRESHOLD from the React frontend
 @app.post("/update_threshold")
@@ -344,15 +384,21 @@ async def update_threshold(request: Request):
         if threshold_logged:
             print(f"Threshold {CLEAN_THRESHOLD} logged in the database.")
         else:
-            print(f"Threshold {CLEAN_THRESHOLD} is the same as the last logged threshold. Not logging.")
+            print(
+                f"Threshold {CLEAN_THRESHOLD} is the same as the last logged threshold. Not logging."
+            )
         return JSONResponse(content={"message": "Threshold updated successfully."})
     else:
-        return JSONResponse(content={"error": "Invalid threshold value."}, status_code=400)
+        return JSONResponse(
+            content={"error": "Invalid threshold value."}, status_code=400
+        )
+
 
 @app.get("/get_current_threshold")
 async def get_current_threshold():
     global CLEAN_THRESHOLD
     return {"threshold": CLEAN_THRESHOLD}
+
 
 @app.websocket("/ws/todays_counts")
 async def websocket_todays_counts(websocket: WebSocket):
@@ -360,8 +406,10 @@ async def websocket_todays_counts(websocket: WebSocket):
     try:
         while True:
             # Get today's date in 'YYYY-MM-DD' format
-            local_timezone = pytz.timezone('Asia/Kolkata')  # Replace with your local time zone
-            today = datetime.now(local_timezone).strftime('%Y-%m-%d')
+            local_timezone = pytz.timezone(
+                "Asia/Kolkata"
+            )  # Replace with your local time zone
+            today = datetime.now(local_timezone).strftime("%Y-%m-%d")
 
             # Fetch today's data from history_collection
             item = history_collection.find_one({"date": today})
@@ -387,6 +435,7 @@ async def websocket_todays_counts(websocket: WebSocket):
     except WebSocketDisconnect:
         print("Client disconnected")
 
+
 # New endpoint to fetch analytics data
 @app.get("/analytics")
 async def get_analytics(date: str = None):
@@ -397,26 +446,35 @@ async def get_analytics(date: str = None):
             date_obj = datetime.strptime(date, "%Y-%m-%d")
 
             # Define UTC start and end of the day
-            start_of_day = datetime.combine(date_obj, time.min).replace(tzinfo=timezone.utc)
-            end_of_day = datetime.combine(date_obj, time.max).replace(tzinfo=timezone.utc)
+            start_of_day = datetime.combine(date_obj, time.min).replace(
+                tzinfo=timezone.utc
+            )
+            end_of_day = datetime.combine(date_obj, time.max).replace(
+                tzinfo=timezone.utc
+            )
 
             query["timestamp"] = {"$gte": start_of_day, "$lte": end_of_day}
         except ValueError:
-            return JSONResponse(content={"error": "Invalid date format. Use YYYY-MM-DD."}, status_code=400)
-    
+            return JSONResponse(
+                content={"error": "Invalid date format. Use YYYY-MM-DD."},
+                status_code=400,
+            )
+
     # Fetch data from MongoDB
     data = list(collection.find(query).sort("timestamp", -1))
 
     # Format data for JSON response
     response_data = []
     for item in data:
-        response_data.append({
-            "date": item["timestamp"].strftime("%Y-%m-%d"),
-            "bedsheet_number": item["bedsheet_number"],
-            "detected_threshold": item["detected_threshold"],
-            "set_threshold": item["set_threshold"],
-            "decision": item["decision"]
-        })
+        response_data.append(
+            {
+                "date": item["timestamp"].strftime("%Y-%m-%d"),
+                "bedsheet_number": item["bedsheet_number"],
+                "detected_threshold": item["detected_threshold"],
+                "set_threshold": item["set_threshold"],
+                "decision": item["decision"],
+            }
+        )
     return JSONResponse(content=response_data)
 
 
@@ -431,14 +489,17 @@ async def get_daily_analytics():
         # Ensure the date is in 'YYYY-MM-DD' format
         date_str = item.get("date", "Unknown")
         if isinstance(date_str, datetime):
-            date_str = date_str.strftime('%Y-%m-%d')
-        response_data.append({
-            "date": item.get("date", "Unknown"),
-            "total_bedsheets": item.get("total_bedsheets", 0),
-            "total_accepted": item.get("total_accepted", 0),
-            "total_rejected": item.get("total_rejected", 0),
-        })
+            date_str = date_str.strftime("%Y-%m-%d")
+        response_data.append(
+            {
+                "date": item.get("date", "Unknown"),
+                "total_bedsheets": item.get("total_bedsheets", 0),
+                "total_accepted": item.get("total_accepted", 0),
+                "total_rejected": item.get("total_rejected", 0),
+            }
+        )
     return JSONResponse(content=response_data)
+
 
 @app.get("/monthly_analytics")
 async def get_monthly_analytics():
@@ -449,39 +510,44 @@ async def get_monthly_analytics():
     monthly_aggregated = {}
 
     for item in data:
-        date_str = item.get('date', 'Unknown')
-        if date_str == 'Unknown':
+        date_str = item.get("date", "Unknown")
+        if date_str == "Unknown":
             continue  # Skip if date is unknown
 
         # Parse the date string to get the month and year
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        month_year = date_obj.strftime('%B %Y')  # E.g., "November 2024"
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        month_year = date_obj.strftime("%B %Y")  # E.g., "November 2024"
 
         if month_year not in monthly_aggregated:
             monthly_aggregated[month_year] = {
-                'total_bedsheets': 0,
-                'accepted': 0,
-                'rejected': 0,
+                "total_bedsheets": 0,
+                "accepted": 0,
+                "rejected": 0,
             }
 
-        monthly_aggregated[month_year]['total_bedsheets'] += item.get('total_bedsheets', 0)
-        monthly_aggregated[month_year]['accepted'] += item.get('total_accepted', 0)
-        monthly_aggregated[month_year]['rejected'] += item.get('total_rejected', 0)
+        monthly_aggregated[month_year]["total_bedsheets"] += item.get(
+            "total_bedsheets", 0
+        )
+        monthly_aggregated[month_year]["accepted"] += item.get("total_accepted", 0)
+        monthly_aggregated[month_year]["rejected"] += item.get("total_rejected", 0)
 
     # Convert aggregated data into a list sorted by date
     result_data = []
     for month_year, counts in monthly_aggregated.items():
-        result_data.append({
-            'month': month_year,
-            'total_bedsheets': counts['total_bedsheets'],
-            'accepted': counts['accepted'],
-            'rejected': counts['rejected']
-        })
+        result_data.append(
+            {
+                "month": month_year,
+                "total_bedsheets": counts["total_bedsheets"],
+                "accepted": counts["accepted"],
+                "rejected": counts["rejected"],
+            }
+        )
 
     # Sort the result data by date
-    result_data.sort(key=lambda x: datetime.strptime(x['month'], '%B %Y'))
+    result_data.sort(key=lambda x: datetime.strptime(x["month"], "%B %Y"))
 
     return JSONResponse(content=result_data)
+
 
 # Open the camera feed (camera index 0)
 cap = cv2.VideoCapture(0)
@@ -494,6 +560,7 @@ if not cap.isOpened():
 latest_frame = None
 frame_lock = threading.Lock()
 
+
 @app.get("/video_feed")
 async def video_feed():
     def generate():
@@ -503,16 +570,22 @@ async def video_feed():
                     continue
                 frame = latest_frame.copy()
             # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
+            ret, buffer = cv2.imencode(".jpg", frame)
             if not ret:
                 continue
             frame_bytes = buffer.tobytes()
             # Yield the frame as an HTTP response for MJPEG streaming
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-#            time.sleep(0.05)  # Adjust as needed
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+            )
 
-    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
+    #            time.sleep(0.05)  # Adjust as needed
+
+    return StreamingResponse(
+        generate(), media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
 
 # WebSocket for analytics data
 @app.websocket("/ws/data")
@@ -520,7 +593,9 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     while True:
         # Get all collection names that start with 'logs_'
-        collection_names = [name for name in db.list_collection_names() if name.startswith('logs_')]
+        collection_names = [
+            name for name in db.list_collection_names() if name.startswith("logs_")
+        ]
         all_data = []
         for col_name in collection_names:
             col = db[col_name]
@@ -529,15 +604,18 @@ async def websocket_endpoint(websocket: WebSocket):
         # Format data for JSON response
         response_data = []
         for item in all_data:
-            response_data.append({
-                "date": item["timestamp"].strftime("%Y-%m-%d"),
-                "bedsheet_number": item["bedsheet_number"],
-                "detected_threshold": item["detected_threshold"],
-                "set_threshold": item["set_threshold"],
-                "decision": item["decision"]
-            })
+            response_data.append(
+                {
+                    "date": item["timestamp"].strftime("%Y-%m-%d"),
+                    "bedsheet_number": item["bedsheet_number"],
+                    "detected_threshold": item["detected_threshold"],
+                    "set_threshold": item["set_threshold"],
+                    "decision": item["decision"],
+                }
+            )
         await websocket.send_text(json.dumps(response_data))
         await asyncio.sleep(2)  # Adjust as needed
+
 
 def process_frames():
     global latest_frame, cap, bedsheet_count  # Use global variables
@@ -589,16 +667,24 @@ def process_frames():
             # FSM Logic
             if state == State.IDLE:
                 # Detect starting edge to transition from IDLE to TRACKING_SCANNING
-                bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=conf_threshold, verbose=False)
+                bedsheet_results = bedsheet_model.predict(
+                    source=frame_resized, conf=conf_threshold, verbose=False
+                )
 
                 for result in bedsheet_results:
                     if result.boxes:
-                        boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                        boxes, classes, confidences = (
+                            result.boxes.xyxy,
+                            result.boxes.cls,
+                            result.boxes.conf,
+                        )
                         for idx, class_id in enumerate(classes):
                             if int(class_id) == 0 and confidences[idx] > conf_threshold:
                                 bedsheet_present = True
                                 x1, y1, x2, y2 = map(int, boxes[idx])
-                                cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                cv2.rectangle(
+                                    frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2
+                                )
                                 y1_positions.append(y1)
                                 y2_positions.append(y2)
 
@@ -609,10 +695,14 @@ def process_frames():
                                     defect_max_areas.clear()
                                     await_ending_edge = False  # Reset await flag
                                     display_not_clean = False
-                                    log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
+                                    log_print(
+                                        "Transitioned to TRACKING_SCANNING: Starting edge detected."
+                                    )
                                     break  # Assuming one bedsheet per frame
 
-                log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
+                log_print(
+                    "Bedsheet Present" if bedsheet_present else "Bedsheet Not Present"
+                )
 
             elif state == State.TRACKING_SCANNING:
                 # Continue tracking and scanning
@@ -622,7 +712,7 @@ def process_frames():
                     conf=defect_conf_threshold,
                     verbose=False,
                     persist=True,
-                    tracker="/home/sr10/Documents/lisa/test/models/botsort_defect.yaml",
+                    tracker="/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml",
                 )
 
                 if defect_results:
@@ -640,7 +730,9 @@ def process_frames():
                             for j, mask in enumerate(mask_array):
                                 defect_mask = mask.cpu().numpy()
                                 defect_id = tracks[j]
-                                defect_area = np.sum(defect_mask)  # Calculate defect area as the sum of mask pixels
+                                defect_area = np.sum(
+                                    defect_mask
+                                )  # Calculate defect area as the sum of mask pixels
 
                                 # Track unique defect IDs for the current bedsheet
                                 unique_defect_ids.add(defect_id)
@@ -650,7 +742,9 @@ def process_frames():
                                     # Only update if the new area is larger than the last maximum area
                                     if defect_area > defect_max_areas[defect_id]:
                                         # Adjust total_defect_area to account for the increase
-                                        total_defect_area += defect_area - defect_max_areas[defect_id]
+                                        total_defect_area += (
+                                            defect_area - defect_max_areas[defect_id]
+                                        )
                                         # Update the maximum area for this defect ID
                                         defect_max_areas[defect_id] = defect_area
                                 else:
@@ -682,9 +776,20 @@ def process_frames():
                                     # Increment bedsheet count only because it's classified as "Not Clean"
                                     # Decision for "Not Clean"
                                     decision = "Rejected"
-                                    log_to_mongo(bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                    update_history(get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                    log_to_mongo(
+                                        bedsheet_count + 1,
+                                        defect_percent_real_time,
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    update_history(
+                                        get_current_date_str(),
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )  # Update history here
+                                    log_print(
+                                        f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'"
+                                    )
                                     bedsheet_count += 1  # Increment bedsheet number
 
                                     # Reset area calculations but continue tracking until ending edge
@@ -697,8 +802,13 @@ def process_frames():
 
                                 # **Draw Bounding Boxes Around Defects**
                                 # Check if bounding box coordinates are available
-                                if hasattr(defect_result.boxes, 'xyxy') and len(defect_result.boxes.xyxy) > j:
-                                    x1_d, y1_d, x2_d, y2_d = defect_result.boxes.xyxy[j].int().tolist()
+                                if (
+                                    hasattr(defect_result.boxes, "xyxy")
+                                    and len(defect_result.boxes.xyxy) > j
+                                ):
+                                    x1_d, y1_d, x2_d, y2_d = (
+                                        defect_result.boxes.xyxy[j].int().tolist()
+                                    )
                                     # Draw rectangle around defect
                                     cv2.rectangle(
                                         frame_resized,
@@ -719,13 +829,19 @@ def process_frames():
                                     )
 
                 # Detect ending edge to transition to IDLE or other states
-                bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=conf_threshold, verbose=False)
+                bedsheet_results = bedsheet_model.predict(
+                    source=frame_resized, conf=conf_threshold, verbose=False
+                )
                 bedsheet_present = False
                 y2_positions = []
 
                 for result in bedsheet_results:
                     if result.boxes:
-                        boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                        boxes, classes, confidences = (
+                            result.boxes.xyxy,
+                            result.boxes.cls,
+                            result.boxes.conf,
+                        )
                         for idx, class_id in enumerate(classes):
                             if int(class_id) == 0 and confidences[idx] > conf_threshold:
                                 bedsheet_present = True
@@ -744,8 +860,10 @@ def process_frames():
 
                             if clean_percent_real_time >= CLEAN_THRESHOLD:
                                 state = State.TRACKING_DECIDED_CLEAN
-                                                            
-                                display_not_clean = False  # No need to display "Not Clean"
+
+                                display_not_clean = (
+                                    False  # No need to display "Not Clean"
+                                )
 
                                 # Log cleanliness analysis
                                 analysis_message = (
@@ -759,9 +877,18 @@ def process_frames():
                                 # Increment bedsheet count because it's classified as "Clean"
                                 # Decision for "Clean"
                                 decision = "Accepted"
-                                log_to_mongo(bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                update_history(get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Clean'")
+                                log_to_mongo(
+                                    bedsheet_count + 1,
+                                    defect_percent_real_time,
+                                    CLEAN_THRESHOLD,
+                                    decision,
+                                )
+                                update_history(
+                                    get_current_date_str(), CLEAN_THRESHOLD, decision
+                                )  # Update history here
+                                log_print(
+                                    f"Bedsheet {bedsheet_count + 1} logged as 'Clean'"
+                                )
                                 bedsheet_count += 1  # Increment bedsheet number
 
                                 # Reset area calculations but continue tracking until ending edge
@@ -774,7 +901,7 @@ def process_frames():
                             else:
                                 # If clean percent is still below threshold upon ending edge
                                 state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                
+
                                 await_ending_edge = True
                                 display_not_clean = True
 
@@ -790,9 +917,18 @@ def process_frames():
                                 # Increment bedsheet count only because it's classified as "Not Clean"
                                 # Decision for "Not Clean"
                                 decision = "Rejected"
-                                log_to_mongo(bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                update_history(get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                log_to_mongo(
+                                    bedsheet_count + 1,
+                                    defect_percent_real_time,
+                                    CLEAN_THRESHOLD,
+                                    decision,
+                                )
+                                update_history(
+                                    get_current_date_str(), CLEAN_THRESHOLD, decision
+                                )  # Update history here
+                                log_print(
+                                    f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'"
+                                )
                                 bedsheet_count += 1  # Increment bedsheet number
 
                                 # Reset area calculations but continue tracking until ending edge
@@ -802,15 +938,24 @@ def process_frames():
 
                 elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
                     # Await ending edge detection
-                    bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=conf_threshold, verbose=False)
+                    bedsheet_results = bedsheet_model.predict(
+                        source=frame_resized, conf=conf_threshold, verbose=False
+                    )
                     bedsheet_present = False
                     y2_positions = []
 
                     for result in bedsheet_results:
                         if result.boxes:
-                            boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                            boxes, classes, confidences = (
+                                result.boxes.xyxy,
+                                result.boxes.cls,
+                                result.boxes.conf,
+                            )
                             for idx, class_id in enumerate(classes):
-                                if int(class_id) == 0 and confidences[idx] > conf_threshold:
+                                if (
+                                    int(class_id) == 0
+                                    and confidences[idx] > conf_threshold
+                                ):
                                     bedsheet_present = True
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
@@ -821,10 +966,15 @@ def process_frames():
                             state = State.IDLE
                             await_ending_edge = False
                             display_not_clean = False
-                            log_print("Transitioned to IDLE: Ending edge detected after Not Clean decision.")
+                            log_print(
+                                "Transitioned to IDLE: Ending edge detected after Not Clean decision."
+                            )
 
             # Display defect percentage and clean percentage if active
-            if state in [State.TRACKING_SCANNING, State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE]:
+            if state in [
+                State.TRACKING_SCANNING,
+                State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
+            ]:
                 # Calculate defect percent and clean percent
                 if DEFAULT_BEDSHEET_AREA > 0:
                     defect_percent = (total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
@@ -864,7 +1014,11 @@ def process_frames():
                         (10, 390),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1,
-                        (0, 255, 0) if clean_percent >= CLEAN_THRESHOLD else (0, 0, 255),
+                        (
+                            (0, 255, 0)
+                            if clean_percent >= CLEAN_THRESHOLD
+                            else (0, 0, 255)
+                        ),
                         2,
                     )
 
@@ -875,18 +1029,24 @@ def process_frames():
                     log_print("Starting Edge")
 
             # Display Ending Edge if active
-            if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
+            if state in [
+                State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
+                State.TRACKING_DECIDED_CLEAN,
+            ]:
                 log_print("Ending Edge")
 
             # Show frame even when no bedsheet is detected
-    #        cv2.imshow("Video with FPS and Detection Status", frame_resized)
+            #        cv2.imshow("Video with FPS and Detection Status", frame_resized)
 
             # Update the latest frame to be used by the video feed endpoint
             with frame_lock:
                 latest_frame = frame_resized.copy()
 
             # Handle display of "Not Clean" message
-            if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
+            if (
+                display_not_clean
+                and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+            ):
                 log_print("Cleanliness: Not Clean")
                 # Transition to IDLE after logging
                 state = State.IDLE
@@ -909,12 +1069,13 @@ def process_frames():
 
     finally:
         # Release resources
-    #    save_collection_to_csv(collection, logs_filename)
-    #    save_collection_to_csv(threshold_collection, threshold_filename)
-    #    save_history_to_csv(history_collection, history_filename)
+        #    save_collection_to_csv(collection, logs_filename)
+        #    save_collection_to_csv(threshold_collection, threshold_filename)
+        #    save_history_to_csv(history_collection, history_filename)
 
         cap.release()
         cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     # Start the processing in a separate thread
@@ -924,4 +1085,5 @@ if __name__ == "__main__":
 
     # Start the Uvicorn server
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

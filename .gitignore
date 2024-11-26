@@ -76,3 +76,52 @@ test/demo_baumer/dashboard/.env.production.local
 test/demo_baumer/dashboard/npm-debug.log*
 test/demo_baumer/dashboard/yarn-debug.log*
 test/demo_baumer/dashboard/yarn-error.log*
+
+
+# dependencies
+test/optimized_dashboard/basler/node_modules
+test/optimized_dashboard/basler/.pnp
+test/optimized_dashboard/basler/.pnp.js
+test/optimized_dashboard/basler/server/node_modules
+
+# testing
+test/optimized_dashboard/basler/coverage/
+
+# production
+test/optimized_dashboard/basler/build/
+
+# misc
+test/optimized_dashboard/basler/.DS_Store
+test/optimized_dashboard/basler/.env.local
+test/optimized_dashboard/basler/.env.development.local
+test/optimized_dashboard/basler/.env.test.local
+test/optimized_dashboard/basler/.env.production.local
+
+test/optimized_dashboard/basler/npm-debug.log*
+test/optimized_dashboard/basler/yarn-debug.log*
+test/optimized_dashboard/basler/yarn-error.log*
+
+
+
+# dependencies
+test/optimized_dashboard/webcam/node_modules
+test/optimized_dashboard/webcam/.pnp
+test/optimized_dashboard/webcam/.pnp.js
+test/optimized_dashboard/webcam/server/node_modules
+
+# testing
+test/optimized_dashboard/webcam/coverage/
+
+# production
+test/optimized_dashboard/webcam/build/
+
+# misc
+test/optimized_dashboard/webcam/.DS_Store
+test/optimized_dashboard/webcam/.env.local
+test/optimized_dashboard/webcam/.env.development.local
+test/optimized_dashboard/webcam/.env.test.local
+test/optimized_dashboard/webcam/.env.production.local
+
+test/optimized_dashboard/webcam/npm-debug.log*
+test/optimized_dashboard/webcam/yarn-debug.log*
+test/optimized_dashboard/webcam/yarn-error.log*
