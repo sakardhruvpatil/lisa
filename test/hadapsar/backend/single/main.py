@@ -88,7 +88,7 @@ camera = None
 # Signal handler for graceful exit
 def signal_handler(sig, frame):
     log_print("Interrupt received. Exiting gracefully...")
-    release_video_resources(cap)
+    release_video_resources(camera, buf)
     sys.exit(0)
 
 # Register signal handler for Ctrl+C
@@ -327,33 +327,49 @@ async def video_feed():
 @app.websocket("/ws/data")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    while True:
-        # Get all collection names that start with 'logs_'
-        collection_names = [name for name in db.list_collection_names() if name.startswith('logs_')]
-        all_data = []
-        for col_name in collection_names:
-            col = db[col_name]
-            latest_logs = list(col.find().sort("timestamp", -1).limit(10))
-            all_data.extend(latest_logs)
-        # Format data for JSON response
-        response_data = []
-        for item in all_data:
-            response_data.append({
-                "date": item["timestamp"].strftime("%Y-%m-%d"),
-                "bedsheet_number": item["bedsheet_number"],
-                "detected_threshold": item["detected_threshold"],
-                "set_threshold": item["set_threshold"],
-                "decision": item["decision"]
-            })
-        await websocket.send_text(json.dumps(response_data))
-        await asyncio.sleep(2)  # Adjust as needed
-
+    try:
+        while True:
+            # Get all collection names that start with 'logs_'
+            collection_names = [name for name in db.list_collection_names() if name.startswith('logs_')]
+            all_data = []
+            for col_name in collection_names:
+                col = db[col_name]
+                latest_logs = list(col.find().sort("timestamp", -1).limit(10))
+                all_data.extend(latest_logs)
+            # Format data for JSON response
+            response_data = []
+            for item in all_data:
+                response_data.append({
+                    "date": item["timestamp"].strftime("%Y-%m-%d"),
+                    "bedsheet_number": item["bedsheet_number"],
+                    "detected_threshold": item["detected_threshold"],
+                    "set_threshold": item["set_threshold"],
+                    "decision": item["decision"]
+                })
+            await websocket.send_text(json.dumps(response_data))
+            await asyncio.sleep(2)  # Adjust as needed
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        
 # Register the signal handler for shutdown
 def handle_shutdown(signal, frame):
     cv2.destroyAllWindows()
     print("Cleanup done. Exiting...")
     sys.exit(0)
 
+# Initialize variables
+total_defect_area = 0  # Initialize total defect area
+unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
+defect_max_areas = {}  # Dictionary to store maximum area of each unique defect ID
+
+await_ending_edge = False  # Flag to await ending edge after premature decision
+display_not_clean = False
+defect_tracking_error = False
+
+# Initialize state
+state = State.IDLE
 
 # Main function
 def detect(frame):
@@ -361,15 +377,9 @@ def detect(frame):
     global total_defect_area, unique_defect_ids, defect_max_areas
     global await_ending_edge, display_not_clean, defect_tracking_error
     global latest_frame  # Add this line
+    global state  # Add this line
 
-    # Initialize variables
-    total_defect_area = 0  # Initialize total defect area
-    unique_defect_ids = set()  # Track unique defect IDs across the bedsheet
-    defect_max_areas = {}  # Dictionary to store maximum area of each unique defect ID
 
-    await_ending_edge = False  # Flag to await ending edge after premature decision
-    display_not_clean = False
-    defect_tracking_error = False
     # Get video properties
     original_height, original_width = frame.shape[:2]    
     # Resize frame for faster processing
@@ -380,8 +390,7 @@ def detect(frame):
     # Initialize the display window and trackbar
     #cv2.namedWindow("Video with FPS and Detection Status")
 
-    # Initialize state
-    state = State.IDLE
+
     # Main loop
     try:
         error_occurred = False  # Flag to track errors
@@ -748,16 +757,13 @@ def process_frame(img):
     # Crop the image from the top and bottom instead of left and right
     height, width, _ = img.shape
     # Crop the image
-    cropped_img = img[CROP_TOP:height - CROP_BOTTOM, :]  # Crop top and bottom
+    cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]  # Crop top and bottom
     #cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]
     frame_resized, bedsheet_count = detect(cropped_img)
 
 # Main Processing Loop
-def main_loop(camera, frame, buf):
+def main_loop(camera, frame_queue, buf):
     global bedsheet_count
-    # Initialize MongoDB and other settings
-    initialize()
-
     print("in main loop")
     if camera is None:
         print("No camera initialized, exiting main loop.")
@@ -784,11 +790,9 @@ def main_loop(camera, frame, buf):
             print("Stopping...")
 
     # Clean up
-    if camera:
-        camera.RevokeUserBuffer(buf)
-        camera.Disconnect()
-    cv2.destroyAllWindows()
     print(f"Final total bedsheets counted: {bedsheet_count}")
+    release_video_resources(camera, buf)
+
 
 # Register the signal handler for shutdown
 signal.signal(signal.SIGINT, handle_shutdown)
@@ -812,6 +816,10 @@ if __name__ == '__main__':
     try:
         
         camera = initialize_camera()
+        payloadsize = camera.f.PayloadSize.Get()
+        buf = CamBuffer(payloadsize)
+        camera.AddUserBuffer(buf)
+        camera.SetUserBufferMode(True)
         # Initialize Frame Queue and Stop Event
         frame_queue = queue.Queue(maxsize=200)
         stop_event = threading.Event()
@@ -825,7 +833,7 @@ if __name__ == '__main__':
     
     try:
         # Run the main detection loop
-        main_loop()
+        main_loop(camera, frame_queue, buf)
     finally:
         try:
             # Save collections to CSV
@@ -834,10 +842,9 @@ if __name__ == '__main__':
             #save_history_to_csv(history_collection, HISTORY_FILENAME)
 
             # Release resources
-            # Stop all threads and clean up
             stop_event.set()
             capture_thread.join()
-            release_video_resources(camera)
+            release_video_resources(camera, buf)
             print("All threads stopped. Cleanup done.")
         except Exception as e:
-            log_bug(f"Failed to release resources or save CSVs. Exception: {e}")
+            log_bug(f"Failed to release resources. Exception: {e}")

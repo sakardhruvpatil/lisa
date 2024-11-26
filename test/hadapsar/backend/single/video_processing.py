@@ -96,11 +96,11 @@ def capture_frames(camera, frame_queue, stop_event):
 
             if img.size != 0:
                 # Rotate the frame 90 degrees clockwise
-                img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                #img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
                 
                 if frame_queue.full():
                     frame_queue.get()
-                frame_queue.put(img_rotated)
+                frame_queue.put(img)
 
         except Exception as e:
             logging.error(

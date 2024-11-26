@@ -22,7 +22,7 @@ from threading import Lock
 import logging
 import uvicorn
 from enum import Enum
-from motor_control import MotorSystem
+
 
 # Global Variables
 stop_event = threading.Event()
@@ -327,9 +327,9 @@ DEFAULT_BEDSHEET_AREA = 10000  # Predefined bedsheet area in pixels
 
 # Load the trained YOLOv8 models
 bedsheet_model = YOLO(
-    "/home/sakar2/lisa/test/models/bedsheet_v11_jetson.engine", task='segment')
+    "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt", task='segment')
 defect_model = YOLO(
-    "/home/sakar2/lisa/test/models/defect_jetson.engine", task='segment')
+    "/home/sr10/Documents/lisa/test/models/defect.pt", task='segment')
 
 
 # Define the amount to crop from the left and right
@@ -755,7 +755,7 @@ def detect(frame):
             conf=defect_conf_threshold,
             verbose=False,
             persist=True,
-            tracker="/home/sakar2/lisa/test/models/botsort_defect.yaml",
+            tracker="/home/sr10/Documents/lisa/test/models/botsort_defect.yaml",
         )
 
         if defect_results:
