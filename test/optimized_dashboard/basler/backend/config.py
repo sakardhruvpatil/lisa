@@ -15,11 +15,11 @@ CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
 
 # Model paths
-BEDSHEET_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.engine"
-DEFECT_MODEL_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.engine"
+BEDSHEET_MODEL_PATH = "/home/sr10/Documents/lisa/test/models/bedsheet_v11.pt"
+DEFECT_MODEL_PATH = "/home/sr10/Documents/lisa/test/models/defect.pt"
 
 # Tracker path
-TRACKER_PATH = "/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml"
+TRACKER_PATH = "/home/sr10/Documents/lisa/test/models/botsort_defect.yaml"
 
 # Threshold
 DEFAULT_THRESHOLD = 95.0
@@ -36,7 +36,7 @@ HISTORY_FILENAME = "history.csv"
 VIDEO_FPS = 25  # Default FPS if not available
 
 # Define the amount to crop from the left and right
-CROP_LEFT = 1  # Pixels to crop from the left
-CROP_RIGHT = 1  # Pixels to crop from the right
-CROP_TOP = 130  # Pixels to crop from the top
-CROP_BOTTOM = 130  # Pixels to crop from the bottom
+CROP_LEFT = 110  # Pixels to crop from the left
+CROP_RIGHT = 110  # Pixels to crop from the right
+CROP_TOP = 340  # Pixels to crop from the top
+CROP_BOTTOM = 380  # Pixels to crop from the bottom

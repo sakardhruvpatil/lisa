@@ -333,7 +333,7 @@ def main():
     global camera, bedsheet_count, CLEAN_THRESHOLD
     global total_defect_area, unique_defect_ids, defect_max_areas
     global await_ending_edge, display_not_clean, defect_tracking_error
-    global latest_frame  # Add this line
+    global latest_frame, CROP_LEFT, CROP_RIGHT, bedsheet_present  # Add this line
 
     # Initialize variables
     total_defect_area = 0  # Initialize total defect area
@@ -363,377 +363,411 @@ def main():
     # Main loop
     try:
         error_occurred = False  # Flag to track errors
-        while camera.IsGrabbing():
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            try:            
-                if grab_result.GrabSucceeded():
-                    # Access the image data and convert Bayer pattern to RGB
-                    image = grab_result.Array
-                    frame_resized = cv2.cvtColor(image, cv2.COLOR_BAYER_RG2RGB)
-
-                    frame_height = frame_resized.shape[0]
-
-                    # Initialize bedsheet presence flags for display
-                    bedsheet_present = False
-                    y1_positions = []
-                    y2_positions = []
-
-                    # FSM Logic
-                    if state == State.IDLE:
-                        if bedsheet_model:  # Check if bedsheet_model is loaded
-                            try:
-                                # Detect starting edge to transition from IDLE to TRACKING_SCANNING
-                                bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=CONF_THRESHOLD, verbose=False)
-
-                                for result in bedsheet_results:
-                                    if result.boxes:
-                                        boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
-                                        for idx, class_id in enumerate(classes):
-                                            if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
-                                                bedsheet_present = True
-                                                x1, y1, x2, y2 = map(int, boxes[idx])
-                                                cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                                y1_positions.append(y1)
-                                                y2_positions.append(y2)
-
-                                                if y1 > frame_height * 0.75:  # Starting edge detected
-                                                    state = State.TRACKING_SCANNING
-                                                    reset_defect_tracking_variables()
-                                                    await_ending_edge = False  # Reset await flag
-                                                    display_not_clean = False
-                                                    log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
-                                                    break  # Assuming one bedsheet per frame
-
-                                log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
-                            except Exception as e:
-                                log_bug(f"Error during bedsheet detection. Exception: {e}")
-                                log_print("Skipping bedsheet detection due to an error.")
-                        else:
-                            log_print("Bedsheet detection skipped. Model not loaded.")
-
-                    elif state == State.TRACKING_SCANNING and defect_model:
-                        if defect_model:  # Check if defect_model is loaded                
-                            # Handle defect tracking only if no error occurred
-                            if not defect_tracking_error:
+        try:
+            while camera.IsGrabbing():
+                max_retries = 3
+                for attempt in range(max_retries):
+                        try:
+                            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+                            if grab_result.GrabSucceeded():
                                 try:
-                                    # Perform defect tracking
-                                    defect_results = defect_model.track(
-                                        source=frame_resized,
-                                        conf=DEFECT_CONF_THRESHOLD,
-                                        verbose=False,
-                                        persist=True,
-                                        tracker=TRACKER_PATH,
-                                    )
-                                except Exception as e:
-                                    defect_tracking_error = True
-                                    defect_results = None  # Ensure defect_results is defined
-                                    log_bug(f"Defect tracking error occurred. Exception: {e}")
-                                    log_print("Skipping defect detection due to an error. Feed will continue running.")
-                            else:
-                                defect_results = None  # Ensure defect_results is defined
-                                log_print("Skipping defect detection as an error was previously encountered.")
-                        else:
-                            defect_results = None  # Ensure defect_results is defined
-                            log_print("Defect detection skipped. Model not loaded.")
-                            
-                        if defect_results and (state == State.TRACKING_SCANNING):
-                            # Count defects only within the bedsheet region
-                            for defect_result in defect_results:
-                                masks = defect_result.masks
-                                tracks = (
-                                    defect_result.boxes.id.cpu().numpy()
-                                    if defect_result.boxes.id is not None
-                                    else None
-                                )
+                                    # Access the image data
+                                    image = grab_result.Array  # This is a 2D array (grayscale)
 
-                                if masks is not None and tracks is not None:
-                                    mask_array = masks.data
-                                    for j, mask in enumerate(mask_array):
-                                        defect_mask = mask.cpu().numpy()
-                                        defect_id = tracks[j]
-                                        defect_area = np.sum(defect_mask)  # Calculate defect area as the sum of mask pixels
-                                        # del defect_mask                    
+                                    # Convert Bayer pattern to RGB
+                                    color_image = cv2.cvtColor(image, cv2.COLOR_BAYER_RG2RGB)
 
-                                        # Track unique defect IDs for the current bedsheet
-                                        unique_defect_ids.add(defect_id)
+                                    # Rotate the image 90 degrees counterclockwise
+                                    rotated_frame = cv2.rotate(color_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-                                        # Check if this defect ID already exists in defect_max_areas
-                                        if defect_id in defect_max_areas:
-                                            # Only update if the new area is larger than the last maximum area
-                                            if defect_area > defect_max_areas[defect_id]:
-                                                # Adjust total_defect_area to account for the increase
-                                                total_defect_area += defect_area - defect_max_areas[defect_id]
-                                                # Update the maximum area for this defect ID
-                                                defect_max_areas[defect_id] = defect_area
+                                    # Flip the image vertically to correct orientation
+                                    rotated_frame = cv2.flip(rotated_frame, 0)
+
+                                    # Get new dimensions after rotation and flip
+                                    rotated_height, rotated_width, channels = rotated_frame.shape
+
+                                    # Crop the image from the top and bottom
+                                    cropped_img = rotated_frame[CROP_TOP:rotated_height - CROP_BOTTOM, :]
+
+                                    # Update frame_height if needed
+                                    frame_height = cropped_img.shape[0]
+
+                                    # Flip the image vertically to correct orientation
+                                    rotated_img = cv2.flip(cropped_img, 0)
+                                    
+                                    # Initialize bedsheet presence flags for display
+                                    bedsheet_present = False
+                                    y1_positions = []
+                                    y2_positions = []
+
+                                    # FSM Logic
+                                    if state == State.IDLE:
+                                        if bedsheet_model:  # Check if bedsheet_model is loaded
+                                            try:
+                                                # Detect starting edge to transition from IDLE to TRACKING_SCANNING
+                                                bedsheet_results = bedsheet_model.predict(source=rotated_img, conf=CONF_THRESHOLD, verbose=False)
+
+                                                for result in bedsheet_results:
+                                                    if result.boxes:
+                                                        boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                                                        for idx, class_id in enumerate(classes):
+                                                            if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
+                                                                bedsheet_present = True
+                                                                x1, y1, x2, y2 = map(int, boxes[idx])
+                                                                cv2.rectangle(rotated_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                                                y1_positions.append(y1)
+                                                                y2_positions.append(y2)
+
+                                                                if y1 > frame_height * 0.75:  # Starting edge detected
+                                                                    state = State.TRACKING_SCANNING
+                                                                    reset_defect_tracking_variables()
+                                                                    await_ending_edge = False  # Reset await flag
+                                                                    display_not_clean = False
+                                                                    log_print("Transitioned to TRACKING_SCANNING: Starting edge detected.")
+                                                                    break  # Assuming one bedsheet per frame
+
+                                                #log_print("Bedsheet Present" if bedsheet_present else "Bedsheet Not Present")
+                                            except Exception as e:
+                                                log_bug(f"Error during bedsheet detection. Exception: {e}")
+                                                log_print("Skipping bedsheet detection due to an error.")
                                         else:
-                                            # New defect ID: add its area to total_defect_area and store it
-                                            defect_max_areas[defect_id] = defect_area
-                                            total_defect_area += defect_area
+                                            log_print("Bedsheet detection skipped. Model not loaded.")
 
-                                        # Calculate real-time clean percent based on DEFAULT_BEDSHEET_AREA
-                                        defect_percent_real_time = (
-                                            total_defect_area / DEFAULT_BEDSHEET_AREA
-                                        ) * 100
-                                        clean_percent_real_time = 100 - defect_percent_real_time
+                                    elif state == State.TRACKING_SCANNING and defect_model:
+                                        if defect_model:  # Check if defect_model is loaded                
+                                            # Handle defect tracking only if no error occurred
+                                            if not defect_tracking_error:
+                                                try:
+                                                    # Perform defect tracking
+                                                    defect_results = defect_model.track(
+                                                        source=rotated_img,
+                                                        conf=DEFECT_CONF_THRESHOLD,
+                                                        verbose=False,
+                                                        persist=True,
+                                                        tracker=TRACKER_PATH,
+                                                    )
+                                                except Exception as e:
+                                                    defect_tracking_error = True
+                                                    defect_results = None  # Ensure defect_results is defined
+                                                    log_bug(f"Defect tracking error occurred. Exception: {e}")
+                                                    log_print("Skipping defect detection due to an error. Feed will continue running.")
+                                            else:
+                                                defect_results = None  # Ensure defect_results is defined
+                                                log_print("Skipping defect detection as an error was previously encountered.")
+                                        else:
+                                            defect_results = None  # Ensure defect_results is defined
+                                            log_print("Defect detection skipped. Model not loaded.")
+                                            
+                                        if defect_results and (state == State.TRACKING_SCANNING):
+                                            # Count defects only within the bedsheet region
+                                            for defect_result in defect_results:
+                                                masks = defect_result.masks
+                                                tracks = (
+                                                    defect_result.boxes.id.cpu().numpy()
+                                                    if defect_result.boxes.id is not None
+                                                    else None
+                                                )
 
-                                        # Immediate rejection if dirty percentage exceeds 100%
-                                        if defect_percent_real_time >= 100:
-                                            state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                            log_print(f"Bedsheet {bedsheet_count + 1}: Rejected due to defect percent >= 100%")
-                                            write_decision_to_file(True)  # Write 'True' for Not Clean decision
-                                            decision = "Rejected"
-                                            log_to_mongo(collection, bedsheet_count + 1, 100, CLEAN_THRESHOLD, decision)
-                                            update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)
-                                            log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
-                                            bedsheet_count += 1
-                                            reset_defect_tracking_variables()
+                                                if masks is not None and tracks is not None:
+                                                    mask_array = masks.data
+                                                    for j, mask in enumerate(mask_array):
+                                                        defect_mask = mask.cpu().numpy()
+                                                        defect_id = tracks[j]
+                                                        defect_area = np.sum(defect_mask)  # Calculate defect area as the sum of mask pixels
+                                                        # del defect_mask                    
 
-                                            # Transition to IDLE after logging
-                                            state = State.IDLE
-                                            log_print("Transitioned to IDLE after rejection due to defect percent >= 100%")
-                                            break  # Exit further processing for this frame
+                                                        # Track unique defect IDs for the current bedsheet
+                                                        unique_defect_ids.add(defect_id)
 
-                                        # Check cleanliness threshold
-                                        if clean_percent_real_time < CLEAN_THRESHOLD:
-                                            state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                            await_ending_edge = True
-                                            display_not_clean = True
-                                            write_decision_to_file(True)  # Write 'True' for Not Clean decision
+                                                        # Check if this defect ID already exists in defect_max_areas
+                                                        if defect_id in defect_max_areas:
+                                                            # Only update if the new area is larger than the last maximum area
+                                                            if defect_area > defect_max_areas[defect_id]:
+                                                                # Adjust total_defect_area to account for the increase
+                                                                total_defect_area += defect_area - defect_max_areas[defect_id]
+                                                                # Update the maximum area for this defect ID
+                                                                defect_max_areas[defect_id] = defect_area
+                                                        else:
+                                                            # New defect ID: add its area to total_defect_area and store it
+                                                            defect_max_areas[defect_id] = defect_area
+                                                            total_defect_area += defect_area
 
-                                            # Log cleanliness analysis
-                                            analysis_message = (
-                                                f"Threshold: {CLEAN_THRESHOLD}%, "
-                                                f"Bedsheet {bedsheet_count + 1}: Not Clean Prematurely. "
-                                                f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                                f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                            )
-                                            log_print(analysis_message)
+                                                        # Calculate real-time clean percent based on DEFAULT_BEDSHEET_AREA
+                                                        defect_percent_real_time = (
+                                                            total_defect_area / DEFAULT_BEDSHEET_AREA
+                                                        ) * 100
+                                                        clean_percent_real_time = 100 - defect_percent_real_time
 
-                                            # Decision for "Not Clean"
-                                            decision = "Rejected"
-                                            log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                            update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                            log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
-                                            bedsheet_count += 1  # Increment bedsheet number
+                                                        # Immediate rejection if dirty percentage exceeds 100%
+                                                        if defect_percent_real_time >= 100:
+                                                            state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                                            log_print(f"Bedsheet {bedsheet_count + 1}: Rejected due to defect percent >= 100%")
+                                                            write_decision_to_file(True)  # Write 'True' for Not Clean decision
+                                                            decision = "Rejected"
+                                                            log_to_mongo(collection, bedsheet_count + 1, 100, CLEAN_THRESHOLD, decision)
+                                                            update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)
+                                                            log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                                            bedsheet_count += 1
+                                                            reset_defect_tracking_variables()
 
-                                            # Reset area calculations but continue tracking until ending edge
-                                            reset_defect_tracking_variables()
+                                                            # Transition to IDLE after logging
+                                                            state = State.IDLE
+                                                            log_print("Transitioned to IDLE after rejection due to defect percent >= 100%")
+                                                            break  # Exit further processing for this frame
 
-                                            # **Important:** Break out of defect processing to avoid further detections in this frame
-                                            break
+                                                        # Check cleanliness threshold
+                                                        if clean_percent_real_time < CLEAN_THRESHOLD:
+                                                            state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                                            await_ending_edge = True
+                                                            display_not_clean = True
+                                                            write_decision_to_file(True)  # Write 'True' for Not Clean decision
 
-                                        # **Draw Bounding Boxes Around Defects**
-                                        # Check if bounding box coordinates are available
-                                        if hasattr(defect_result.boxes, 'xyxy') and len(defect_result.boxes.xyxy) > j:
-                                            x1_d, y1_d, x2_d, y2_d = defect_result.boxes.xyxy[j].int().tolist()
-                                            # Draw rectangle around defect
-                                            cv2.rectangle(
-                                                frame_resized,
-                                                (x1_d, y1_d),
-                                                (x2_d, y2_d),
-                                                (0, 0, 255),  # Red color for defects
+                                                            # Log cleanliness analysis
+                                                            analysis_message = (
+                                                                f"Threshold: {CLEAN_THRESHOLD}%, "
+                                                                f"Bedsheet {bedsheet_count + 1}: Not Clean Prematurely. "
+                                                                f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                                                f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                                            )
+                                                            log_print(analysis_message)
+
+                                                            # Decision for "Not Clean"
+                                                            decision = "Rejected"
+                                                            log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
+                                                            update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
+                                                            log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                                            bedsheet_count += 1  # Increment bedsheet number
+
+                                                            # Reset area calculations but continue tracking until ending edge
+                                                            reset_defect_tracking_variables()
+
+                                                            # **Important:** Break out of defect processing to avoid further detections in this frame
+                                                            break
+
+                                                        # **Draw Bounding Boxes Around Defects**
+                                                        # Check if bounding box coordinates are available
+                                                        if hasattr(defect_result.boxes, 'xyxy') and len(defect_result.boxes.xyxy) > j:
+                                                            x1_d, y1_d, x2_d, y2_d = defect_result.boxes.xyxy[j].int().tolist()
+                                                            # Draw rectangle around defect
+                                                            cv2.rectangle(
+                                                                rotated_img,
+                                                                (x1_d, y1_d),
+                                                                (x2_d, y2_d),
+                                                                (0, 0, 255),  # Red color for defects
+                                                                2,
+                                                            )
+                                                            # Annotate defect ID
+                                                            cv2.putText(
+                                                                rotated_img,
+                                                                f"ID: {defect_id}",
+                                                                (x1_d, y1_d - 10),
+                                                                cv2.FONT_HERSHEY_SIMPLEX,
+                                                                0.5,
+                                                                (0, 0, 255),
+                                                                1,
+                                                            )
+
+                                    # Detect ending edge to transition to IDLE or other states
+                                    if state == State.TRACKING_SCANNING:
+                                        bedsheet_results = bedsheet_model.predict(source=rotated_img, conf=CONF_THRESHOLD, verbose=False)
+                                        bedsheet_present = False
+                                        y2_positions = []
+
+                                        for result in bedsheet_results:
+                                            if result.boxes:
+                                                boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                                                for idx, class_id in enumerate(classes):
+                                                    if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
+                                                        bedsheet_present = True
+                                                        x1, y1, x2, y2 = map(int, boxes[idx])
+                                                        y2_positions.append(y2)
+
+                                        if y2_positions:
+                                            y2_max = max(y2_positions)
+                                            if y2_max < frame_height * 0.90:  # Ending edge detected
+                                                # Clean decision upon ending edge detection
+                                                defect_percent_real_time = (
+                                                    total_defect_area / DEFAULT_BEDSHEET_AREA
+                                                ) * 100
+                                                clean_percent_real_time = 100 - defect_percent_real_time
+
+                                                if clean_percent_real_time >= CLEAN_THRESHOLD:
+                                                    state = State.TRACKING_DECIDED_CLEAN
+                                                                            
+                                                    display_not_clean = False  # No need to display "Not Clean"
+                                                    write_decision_to_file(False)  # Write 'False' for Clean decision
+
+                                                    # Log cleanliness analysis
+                                                    analysis_message = (
+                                                        f"Threshold: {CLEAN_THRESHOLD}%, "
+                                                        f"Bedsheet {bedsheet_count + 1}: Clean. "
+                                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                                    )
+                                                    log_print(analysis_message)
+
+                                                    # Decision for "Clean"
+                                                    decision = "Accepted"
+                                                    log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
+                                                    update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
+                                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Clean'")
+                                                    bedsheet_count += 1  # Increment bedsheet number
+
+                                                    # Reset area calculations but continue tracking until ending edge
+                                                    reset_defect_tracking_variables()
+
+                                                    log_print("Ending Edge Detected and Counted as Clean")
+
+                                                else:
+                                                    # If clean percent is still below threshold upon ending edge
+                                                    state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                                    
+                                                    await_ending_edge = True
+                                                    display_not_clean = True
+                                                    write_decision_to_file(True)  # Write 'True' for Not Clean decision
+
+                                                    # Log cleanliness analysis
+                                                    analysis_message = (
+                                                        f"Threshold: {CLEAN_THRESHOLD}%, "
+                                                        f"Bedsheet {bedsheet_count + 1}: Not Clean at Ending Edge. "
+                                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                                    )
+                                                    log_print(analysis_message)
+
+                                                    # Decision for "Not Clean"
+                                                    decision = "Rejected"
+                                                    log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
+                                                    update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
+                                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
+                                                    bedsheet_count += 1  # Increment bedsheet number
+
+                                                    # Reset area calculations but continue tracking until ending edge
+                                                    reset_defect_tracking_variables()
+
+                                    elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
+                                        # Await ending edge detection
+                                        bedsheet_results = bedsheet_model.predict(source=rotated_img, conf=CONF_THRESHOLD, verbose=False)
+                                        bedsheet_present = False
+                                        y2_positions = []
+
+                                        for result in bedsheet_results:
+                                            if result.boxes:
+                                                boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
+                                                for idx, class_id in enumerate(classes):
+                                                    if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
+                                                        bedsheet_present = True
+                                                        x1, y1, x2, y2 = map(int, boxes[idx])
+                                                        y2_positions.append(y2)
+
+                                        if y2_positions:
+                                            y2_max = max(y2_positions)
+                                            if y2_max < frame_height * 0.90:  # Ending edge detected
+                                                state = State.IDLE
+                                                await_ending_edge = False
+                                                display_not_clean = False
+                                                log_print("Transitioned to IDLE: Ending edge detected after Not Clean decision.")
+
+                                    # Display defect percentage and clean percentage if active
+                                    if state in [State.TRACKING_SCANNING, State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE]:
+                                        # Calculate defect percent and clean percent
+                                        if DEFAULT_BEDSHEET_AREA > 0:
+                                            defect_percent = (total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
+                                            clean_percent = 100 - defect_percent
+                                        else:
+                                            defect_percent = 0.0
+                                            clean_percent = 100.0
+
+                                        # Display on frame
+                                        cv2.putText(
+                                            rotated_img,
+                                            f"Defect Percent: {defect_percent:.2f}%",
+                                            (10, 310),
+                                            cv2.FONT_HERSHEY_SIMPLEX,
+                                            1,
+                                            (255, 0, 0),
+                                            2,
+                                        )
+                                        cv2.putText(
+                                            rotated_img,
+                                            f"Clean Percent: {clean_percent:.2f}%",
+                                            (10, 350),
+                                            cv2.FONT_HERSHEY_SIMPLEX,
+                                            1,
+                                            (0, 255, 0),
+                                            2,
+                                        )
+
+                                        # Display cleanliness status if not already classified as Not Clean or Clean
+                                        if state not in [
+                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
+                                            State.TRACKING_DECIDED_CLEAN,
+                                        ]:
+                                            cv2.putText(
+                                                rotated_img,
+                                                f"Cleanliness: {'Clean' if clean_percent >= CLEAN_THRESHOLD else 'Not Clean'}",
+                                                (10, 390),
+                                                cv2.FONT_HERSHEY_SIMPLEX,
+                                                1,
+                                                (0, 255, 0) if clean_percent >= CLEAN_THRESHOLD else (0, 0, 255),
                                                 2,
                                             )
-                                            # Annotate defect ID
-                                            cv2.putText(
-                                                frame_resized,
-                                                f"ID: {defect_id}",
-                                                (x1_d, y1_d - 10),
-                                                cv2.FONT_HERSHEY_SIMPLEX,
-                                                0.5,
-                                                (0, 0, 255),
-                                                1,
-                                            )
 
-                    # Detect ending edge to transition to IDLE or other states
-                    if state == State.TRACKING_SCANNING:
-                        bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=CONF_THRESHOLD, verbose=False)
-                        bedsheet_present = False
-                        y2_positions = []
+                                    # Display Starting Edge if active
+                                    if state == State.TRACKING_SCANNING and y1_positions:
+                                        y1_min = min(y1_positions)
+                                        if y1_min > frame_height * 0.05:
+                                            log_print("Starting Edge")
 
-                        for result in bedsheet_results:
-                            if result.boxes:
-                                boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
-                                for idx, class_id in enumerate(classes):
-                                    if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
-                                        bedsheet_present = True
-                                        x1, y1, x2, y2 = map(int, boxes[idx])
-                                        y2_positions.append(y2)
+                                    # Display Ending Edge if active
+                                    if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
+                                        log_print("Ending Edge")
 
-                        if y2_positions:
-                            y2_max = max(y2_positions)
-                            if y2_max < frame_height * 0.90:  # Ending edge detected
-                                # Clean decision upon ending edge detection
-                                defect_percent_real_time = (
-                                    total_defect_area / DEFAULT_BEDSHEET_AREA
-                                ) * 100
-                                clean_percent_real_time = 100 - defect_percent_real_time
+                                    # Show frame even when no bedsheet is detected
+                                    cv2.imshow("Video with FPS and Detection Status", rotated_img)
 
-                                if clean_percent_real_time >= CLEAN_THRESHOLD:
-                                    state = State.TRACKING_DECIDED_CLEAN
-                                                            
-                                    display_not_clean = False  # No need to display "Not Clean"
-                                    write_decision_to_file(False)  # Write 'False' for Clean decision
+                                    # Handle display of "Not Clean" message
+                                    if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
+                                        log_print("Cleanliness: Not Clean")
+                                        # Transition to IDLE after logging
+                                        state = State.IDLE
+                                        display_not_clean = False
+                                        await_ending_edge = False  # Reset await flag for next bedsheet
 
-                                    # Log cleanliness analysis
-                                    analysis_message = (
-                                        f"Threshold: {CLEAN_THRESHOLD}%, "
-                                        f"Bedsheet {bedsheet_count + 1}: Clean. "
-                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                    )
-                                    log_print(analysis_message)
+                                    # Handle display of "Clean" message
+                                    if state == State.TRACKING_DECIDED_CLEAN:
+                                        log_print("Cleanliness: Clean")
+                                        # Transition to IDLE after logging
+                                        state = State.IDLE
+                                        await_ending_edge = False  # Reset await flag for next bedsheet
 
-                                    # Decision for "Clean"
-                                    decision = "Accepted"
-                                    log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                    update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Clean'")
-                                    bedsheet_count += 1  # Increment bedsheet number
+                                    # Update latest_frame for streaming
+                                    with frame_lock:
+                                        latest_frame = rotated_img.copy()
 
-                                    # Reset area calculations but continue tracking until ending edge
-                                    reset_defect_tracking_variables()
-
-                                    log_print("Ending Edge Detected and Counted as Clean")
-
-                                else:
-                                    # If clean percent is still below threshold upon ending edge
-                                    state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                    
-                                    await_ending_edge = True
-                                    display_not_clean = True
-                                    write_decision_to_file(True)  # Write 'True' for Not Clean decision
-
-                                    # Log cleanliness analysis
-                                    analysis_message = (
-                                        f"Threshold: {CLEAN_THRESHOLD}%, "
-                                        f"Bedsheet {bedsheet_count + 1}: Not Clean at Ending Edge. "
-                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                    )
-                                    log_print(analysis_message)
-
-                                    # Decision for "Not Clean"
-                                    decision = "Rejected"
-                                    log_to_mongo(collection, bedsheet_count + 1, defect_percent_real_time, CLEAN_THRESHOLD, decision)
-                                    update_history(history_collection, get_current_date_str(), CLEAN_THRESHOLD, decision)  # Update history here
-                                    log_print(f"Bedsheet {bedsheet_count + 1} logged as 'Not Clean'")
-                                    bedsheet_count += 1  # Increment bedsheet number
-
-                                    # Reset area calculations but continue tracking until ending edge
-                                    reset_defect_tracking_variables()
-
-                    elif state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
-                        # Await ending edge detection
-                        bedsheet_results = bedsheet_model.predict(source=frame_resized, conf=CONF_THRESHOLD, verbose=False)
-                        bedsheet_present = False
-                        y2_positions = []
-
-                        for result in bedsheet_results:
-                            if result.boxes:
-                                boxes, classes, confidences = result.boxes.xyxy, result.boxes.cls, result.boxes.conf
-                                for idx, class_id in enumerate(classes):
-                                    if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
-                                        bedsheet_present = True
-                                        x1, y1, x2, y2 = map(int, boxes[idx])
-                                        y2_positions.append(y2)
-
-                        if y2_positions:
-                            y2_max = max(y2_positions)
-                            if y2_max < frame_height * 0.90:  # Ending edge detected
-                                state = State.IDLE
-                                await_ending_edge = False
-                                display_not_clean = False
-                                log_print("Transitioned to IDLE: Ending edge detected after Not Clean decision.")
-
-                    # Display defect percentage and clean percentage if active
-                    if state in [State.TRACKING_SCANNING, State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE]:
-                        # Calculate defect percent and clean percent
-                        if DEFAULT_BEDSHEET_AREA > 0:
-                            defect_percent = (total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
-                            clean_percent = 100 - defect_percent
-                        else:
-                            defect_percent = 0.0
-                            clean_percent = 100.0
-
-                        # Display on frame
-                        cv2.putText(
-                            frame_resized,
-                            f"Defect Percent: {defect_percent:.2f}%",
-                            (10, 310),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (255, 0, 0),
-                            2,
-                        )
-                        cv2.putText(
-                            frame_resized,
-                            f"Clean Percent: {clean_percent:.2f}%",
-                            (10, 350),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (0, 255, 0),
-                            2,
-                        )
-
-                        # Display cleanliness status if not already classified as Not Clean or Clean
-                        if state not in [
-                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
-                            State.TRACKING_DECIDED_CLEAN,
-                        ]:
-                            cv2.putText(
-                                frame_resized,
-                                f"Cleanliness: {'Clean' if clean_percent >= CLEAN_THRESHOLD else 'Not Clean'}",
-                                (10, 390),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                1,
-                                (0, 255, 0) if clean_percent >= CLEAN_THRESHOLD else (0, 0, 255),
-                                2,
-                            )
-
-                    # Display Starting Edge if active
-                    if state == State.TRACKING_SCANNING and y1_positions:
-                        y1_min = min(y1_positions)
-                        if y1_min > frame_height * 0.05:
-                            log_print("Starting Edge")
-
-                    # Display Ending Edge if active
-                    if state in [State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE, State.TRACKING_DECIDED_CLEAN]:
-                        log_print("Ending Edge")
-
-                    # Show frame even when no bedsheet is detected
-                    #cv2.imshow("Video with FPS and Detection Status", frame_resized)
-
-                    # Handle display of "Not Clean" message
-                    if display_not_clean and state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
-                        log_print("Cleanliness: Not Clean")
-                        # Transition to IDLE after logging
-                        state = State.IDLE
-                        display_not_clean = False
-                        await_ending_edge = False  # Reset await flag for next bedsheet
-
-                    # Handle display of "Clean" message
-                    if state == State.TRACKING_DECIDED_CLEAN:
-                        log_print("Cleanliness: Clean")
-                        # Transition to IDLE after logging
-                        state = State.IDLE
-                        await_ending_edge = False  # Reset await flag for next bedsheet
-
-                    # Update latest_frame for streaming
-                    with frame_lock:
-                        latest_frame = frame_resized.copy()
-
-                    # Exit if 'q' is pressed
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
-
-                    grab_result.Release()
-
-            except Exception as e:
-                log_bug(f"Error during main loop processing. Exception: {e}")
-                error_occurred = True
-                break  # Exit the loop on error
-
+                                    # Exit if 'q' is pressed
+                                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                                        break
+                                    break
+                                except Exception as e:
+                                    log_bug(f"Error processing frame: {e}")
+                                    continue  # Skip to next frame
+                                finally:
+                                    grab_result.Release()
+                            else:
+                                error_code = grab_result.ErrorCode
+                                error_description = grab_result.ErrorDescription
+                                log_bug(f"Frame grab failed with error code {error_code}: {error_description}")
+                                grab_result.Release()
+                                continue  # Skip to next frame                    except pylon.GenericException as e:
+                        except Exception as e:
+                            log_bug(f"RetrieveResult threw an exception: {e}")
+                            continue  # Skip to the next frame
+        except Exception as e:
+            log_bug(f"Fatal error in main loop. Exception: {e}")
+        finally:
+            release_video_resources(camera)
+            error_occurred = True
     except Exception as e:
         log_bug(f"Fatal error in main loop. Exception: {e}")
     finally:
@@ -759,6 +793,5 @@ if __name__ == "__main__":
         # Run the main detection loop
         main()
     finally:
-        # Stop all threads and clean up
-        cv2.destroyAllWindows()
+        release_video_resources(camera)
         print("All threads stopped. Cleanup done.")
