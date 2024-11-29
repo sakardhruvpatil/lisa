@@ -1,0 +1,80 @@
+/* Navbar.css */
+
+.navbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: #fc981e; /* Orange background */
+  padding: 10px 20px;
+  color: white;
+  position: relative;
+}
+
+.title {
+  font-size: 44px;
+  text-decoration: none;
+  color: white;
+  margin-left: 20px; /* Space next to the title */
+}
+
+.menu {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+}
+
+.menu div {
+  width: 25px;
+  height: 4px;
+  background-color: white;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -250px;
+  width: 250px;
+  height: 100%;
+  background-color: #fc981e;
+  transition: left 0.3s ease-in-out;
+  z-index: 9999;
+  padding-top: 60px;
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar ul li {
+  padding: 20px;
+}
+
+.sidebar ul li a {
+  text-decoration: none;
+  color: white;
+  font-size: 18px;
+  display: block;
+  text-align: center;
+}
+
+
+
+/* Active link styling */
+.sidebar ul li a.active {
+  color: #fff000;
+}

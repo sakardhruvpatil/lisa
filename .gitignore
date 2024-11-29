@@ -3,21 +3,5 @@ dashboard_Electron/node_modules/
 dashboard_Electron/.pnp
 dashboard_Electron/.pnp.js
 dashboard_Electron/server/node_modules/
-
-# testing
-dashboard_Electron/coverage/
-
-# production
-dashboard_Electron/build/
-
-# misc
-dashboard_Electron/.DS_Store
-dashboard_Electron/.env.local
-dashboard_Electron/.env.development.local
-dashboard_Electron/.env.test.local
-dashboard_Electron/.env.production.local
-
-dashboard_Electron/npm-debug.log*
-dashboard_Electron/yarn-debug.log*
-dashboard_Electron/yarn-error.log*
-
+dashboard/node_modules
+dashboard/build
