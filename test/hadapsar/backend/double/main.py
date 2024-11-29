@@ -3,7 +3,7 @@
 import signal
 import sys
 import cv2
-from datetime import datetime, timezone, time
+from datetime import datetime, date, timezone
 from config import *
 from database import *
 from logger import log_bug, log_print
