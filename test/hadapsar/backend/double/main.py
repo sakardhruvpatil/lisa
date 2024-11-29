@@ -361,9 +361,6 @@ class CameraProcessor:
                                     # Reset area calculations but continue tracking until ending edge
                                     self.reset_defect_tracking_variables()
 
-                                    # **Important:** Break out of defect processing to avoid further detections in this frame
-                                    break
-
                                     # **Draw Bounding Boxes Around Defects**
                                     # Check if bounding box coordinates are available
                                     if (
@@ -391,7 +388,10 @@ class CameraProcessor:
                                             (0, 0, 255),
                                             1,
                                         )
-
+                                        
+                                    # **Important:** Break out of defect processing to avoid further detections in this frame
+                                    break
+                                
             # Detect ending edge to transition to IDLE or other states
             if self.state == State.TRACKING_SCANNING:
                 bedsheet_results = bedsheet_model.predict(
