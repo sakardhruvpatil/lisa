@@ -116,7 +116,7 @@ class CameraProcessor:
     def process_frame(self, img):
         # Crop the image from the top and bottom instead of left and right
         height, width, _ = img.shape
-        cropped_img = img[CROP_TOP : height - CROP_BOTTOM, :]  # Crop top and bottom
+        cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]  # Crop left and right
         self.detect(cropped_img)
 
     def write_decision_to_file(self, decision):
@@ -282,6 +282,35 @@ class CameraProcessor:
                                 ) * 100
                                 clean_percent_real_time = 100 - defect_percent_real_time
 
+                            
+                                # **Draw Bounding Boxes Around Defects**
+                                # Check if bounding box coordinates are available
+                                if (
+                                    hasattr(defect_result.boxes, "xyxy")
+                                    and len(defect_result.boxes.xyxy) > j
+                                ):
+                                    x1_d, y1_d, x2_d, y2_d = (
+                                        defect_result.boxes.xyxy[j].int().tolist()
+                                    )
+                                    # Draw rectangle around defect
+                                    cv2.rectangle(
+                                        frame_resized,
+                                        (x1_d, y1_d),
+                                        (x2_d, y2_d),
+                                        (0, 0, 255),  # Red color for defects
+                                        2,
+                                    )
+                                    # Annotate defect ID
+                                    cv2.putText(
+                                        frame_resized,
+                                        f"ID: {defect_id}",
+                                        (x1_d, y1_d - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX,
+                                        0.5,
+                                        (0, 0, 255),
+                                        1,
+                                    )
+
                                 # Immediate rejection if dirty percentage exceeds 100%
                                 if defect_percent_real_time >= 100:
                                     self.state = (
@@ -361,37 +390,9 @@ class CameraProcessor:
                                     # Reset area calculations but continue tracking until ending edge
                                     self.reset_defect_tracking_variables()
 
-                                    # **Draw Bounding Boxes Around Defects**
-                                    # Check if bounding box coordinates are available
-                                    if (
-                                        hasattr(defect_result.boxes, "xyxy")
-                                        and len(defect_result.boxes.xyxy) > j
-                                    ):
-                                        x1_d, y1_d, x2_d, y2_d = (
-                                            defect_result.boxes.xyxy[j].int().tolist()
-                                        )
-                                        # Draw rectangle around defect
-                                        cv2.rectangle(
-                                            frame_resized,
-                                            (x1_d, y1_d),
-                                            (x2_d, y2_d),
-                                            (0, 0, 255),  # Red color for defects
-                                            2,
-                                        )
-                                        # Annotate defect ID
-                                        cv2.putText(
-                                            frame_resized,
-                                            f"ID: {defect_id}",
-                                            (x1_d, y1_d - 10),
-                                            cv2.FONT_HERSHEY_SIMPLEX,
-                                            0.5,
-                                            (0, 0, 255),
-                                            1,
-                                        )
-                                        
                                     # **Important:** Break out of defect processing to avoid further detections in this frame
                                     break
-                                
+
             # Detect ending edge to transition to IDLE or other states
             if self.state == State.TRACKING_SCANNING:
                 bedsheet_results = bedsheet_model.predict(

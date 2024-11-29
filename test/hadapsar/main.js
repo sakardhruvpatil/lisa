@@ -22,7 +22,7 @@ function createWindow() {
 
 	// Set zoom factor to make the app zoomed out
 	win.webContents.on('did-finish-load', () => {
-		win.webContents.setZoomFactor(0.8); // Adjust zoom level (0.8 = 80%)
+		win.webContents.setZoomFactor(1.0); // Adjust zoom level (0.8 = 80%)
 	});
 
 	win.on('closed', () => {

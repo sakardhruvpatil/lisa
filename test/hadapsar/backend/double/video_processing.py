@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from logger import log_bug, log_print
 import neoapi
-import logging
 import threading
 import time
 import sys
@@ -68,8 +67,16 @@ class CameraManager:
                         self.cameras[serial_number] = camera
                         log_print(f"Camera {serial_number} connected successfully.")
                         self.camera_connected_events[serial_number].set()
-            except (neoapi.NeoException, Exception) as exc:
+            except neoapi.NoAccessException as exc:
+                log_print(f"No access to camera {serial_number}: {exc}. Waiting before retrying...")
+                time.sleep(10)  # Wait longer before retrying
+            except neoapi.NeoException as exc:
                 log_print(f"Failed to connect camera {serial_number}: {exc}. Retrying...")
+                self.cameras[serial_number] = None
+                self.camera_connected_events[serial_number].clear()
+                time.sleep(3)
+            except Exception as exc:
+                log_print(f"Unexpected error when connecting to camera {serial_number}: {exc}")
                 self.cameras[serial_number] = None
                 self.camera_connected_events[serial_number].clear()
                 time.sleep(3)
@@ -109,19 +116,26 @@ class CameraManager:
                     camera = self.cameras[serial_number]
                     if camera is None:
                         continue
+                    
+                    # Fetch payloadsize every time to ensure it's up-to-date
                     payloadsize = camera.f.PayloadSize.Get()
+                    #log_print(f"Camera {serial_number} payload size: {payloadsize}")
                     buf = CamBuffer(payloadsize)
                     self.bufs[serial_number] = buf  # Store buf
+
                     camera.AddUserBuffer(buf)
                     camera.SetUserBufferMode(True)
-                    img = camera.GetImage().GetNPArray()
+
+                # Capture image outside of the lock to prevent blocking
+                img = camera.GetImage().GetNPArray()
+
                 if img.size != 0:
                     # Rotate the frame 90 degrees clockwise
-                    img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                    #img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
                     if self.frame_queues[serial_number].full():
                         self.frame_queues[serial_number].get()
-                    self.frame_queues[serial_number].put(img_rotated)
+                    self.frame_queues[serial_number].put(img)
 
                 with self.camera_locks[serial_number]:
                     camera.RevokeUserBuffer(buf)
@@ -133,9 +147,20 @@ class CameraManager:
                     if self.cameras[serial_number]:
                         # Revoke buf if it's still allocated
                         if self.bufs[serial_number]:
-                            camera.RevokeUserBuffer(self.bufs[serial_number])
+                            try:
+                                self.cameras[serial_number].RevokeUserBuffer(self.bufs[serial_number])
+                            except Exception as e:
+                                log_print(f"Error revoking buffer for camera {serial_number}: {e}")
                             self.bufs[serial_number] = None
-                        self.cameras[serial_number].Disconnect()
+                        try:
+                            self.cameras[serial_number].StopStreaming()
+                        except Exception as e:
+                            log_print(f"Error stopping streaming for camera {serial_number}: {e}")
+                        try:
+                            self.cameras[serial_number].Disconnect()
+                        except Exception as e:
+                            log_print(f"Error disconnecting camera {serial_number}: {e}")
+                        del self.cameras[serial_number]  # Delete the camera object
                         self.cameras[serial_number] = None
                         self.camera_connected_events[serial_number].clear()
                 time.sleep(3)
@@ -144,6 +169,7 @@ class CameraManager:
                 log_bug(f"Unexpected error in camera {serial_number} capture: {e}")
                 time.sleep(3)
             time.sleep(0.01)
+
 
     def get_frame(self, serial_number):
         if serial_number not in self.frame_queues:
