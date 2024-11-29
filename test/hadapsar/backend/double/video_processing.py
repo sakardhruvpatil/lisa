@@ -5,10 +5,11 @@ import numpy as np
 from logger import log_bug, log_print
 import neoapi
 import logging
-from threading import Lock
+import threading
 import time
 import sys
-
+from config import SERIAL_NUMBER_LEFT, SERIAL_NUMBER_RIGHT
+import queue
 
 class CamBuffer(neoapi.BufferBase):
     def __init__(self, size):
@@ -24,115 +25,143 @@ class CamBuffer(neoapi.BufferBase):
         self.UnregisterMemory()
 
 
-class CameraInitializationError(Exception):
-    """Custom exception for camera initialization errors"""
+class CameraManager:
+    def __init__(self):
+        self.camera_serial_numbers = [SERIAL_NUMBER_LEFT, SERIAL_NUMBER_RIGHT]
+        self.cameras = {}  # Map serial number to camera object
+        self.camera_locks = {}  # Map serial number to lock
+        self.camera_connected_events = {}  # Map serial number to threading.Event
+        self.frame_queues = {}  # Map serial number to frame queue
+        self.bufs = {}  # Map serial number to buf
+        self.stop_event = threading.Event()
 
-    pass
+        for serial in self.camera_serial_numbers:
+            self.cameras[serial] = None
+            self.camera_locks[serial] = threading.Lock()
+            self.camera_connected_events[serial] = threading.Event()
+            self.frame_queues[serial] = queue.Queue(maxsize=200)
+            self.bufs[serial] = None
 
+    def start(self):
+        # Start camera initialization threads for each camera
+        for serial in self.camera_serial_numbers:
+            threading.Thread(target=self.initialize_camera, args=(serial,), daemon=True).start()
+            threading.Thread(target=self.capture_frames, args=(serial,), daemon=True).start()
 
-# Camera Initialization
+    def stop(self):
+        self.stop_event.set()
+        # Wait a moment to ensure threads have stopped
+        time.sleep(1)
+        # Release video resources
+        for serial in self.camera_serial_numbers:
+            self.release_video_resources(serial)
 
-def initialize_camera(serial_number):
-    try:
-        camera_lock = Lock()
-        camera = None
-        print(f"Initializing camera with serial number: {serial_number}")
-        if camera is None:
-            while camera is None:
-                try:
-                    with camera_lock:
+    def initialize_camera(self, serial_number):
+        while not self.stop_event.is_set():
+            try:
+                with self.camera_locks[serial_number]:
+                    if self.cameras[serial_number] is None:
+                        log_print(f"Initializing camera with serial number: {serial_number}")
                         camera = neoapi.Cam()
                         camera.Connect(serial_number)
-                        set_camera_params(camera)
-                        print(f"Camera {serial_number} connected successfully.")
-                except (neoapi.NeoException, Exception) as exc:
-                    print(f"Failed to connect camera {serial_number}: {exc}. Retrying...")
-                    camera = None
-                    time.sleep(3)
-            if camera is None:
-                raise CameraInitializationError(
-                    f"Failed to initialize camera {serial_number} after multiple attempts."
-                )
-    except Exception as e:
-        log_bug(f"Initialization failed for camera {serial_number}. Exception: {e}")
-        raise
-    return camera
+                        self.set_camera_params(camera)
+                        self.cameras[serial_number] = camera
+                        log_print(f"Camera {serial_number} connected successfully.")
+                        self.camera_connected_events[serial_number].set()
+            except (neoapi.NeoException, Exception) as exc:
+                log_print(f"Failed to connect camera {serial_number}: {exc}. Retrying...")
+                self.cameras[serial_number] = None
+                self.camera_connected_events[serial_number].clear()
+                time.sleep(3)
+            time.sleep(0.1)  # Slight delay to prevent tight loop
 
-
-
-def set_camera_params(camera):
-    try:
-        pixel_format = (
-            "BGR8"
-            if camera.f.PixelFormat.GetEnumValueList().IsReadable("BGR8")
-            else "Mono8"
-        )
-        camera.f.PixelFormat.SetString(pixel_format)
-        camera.f.TriggerMode.value = neoapi.TriggerMode_Off
-        camera.f.ExposureAuto.SetString("Off")
-        camera.f.ExposureMode.SetString("Timed")
-        camera.f.ExposureTime.Set(14000.0)
-        camera.f.GainAuto.SetString("Off")
-        camera.f.Gain.Set(0.0)
-        camera.f.LUTEnable.Set(True)
-        camera.f.Gamma.Set(0.80)
-        camera.f.BalanceWhiteAuto.SetString("Continuous")
-        camera.f.AcquisitionFrameRateEnable.value = True
-        camera.f.AcquisitionFrameRate.value = 55.0
-    except Exception as e:
-        print(f"Error setting camera parameters: {e}")
-        sys.exit(0)
-
-
-# Frame Capture
-def capture_frames(camera, frame_queue, stop_event, serial_number):
-    if camera is None:
-        logging.error(f"No camera available for frame capture (Serial: {serial_number}).")
-        return
-    while not stop_event.is_set():
+    def set_camera_params(self, camera):
         try:
-            payloadsize = camera.f.PayloadSize.Get()
-            buf = CamBuffer(payloadsize)
-            camera.AddUserBuffer(buf)
-            camera.SetUserBufferMode(True)
-            img = camera.GetImage().GetNPArray()
-
-            if img.size != 0:
-                # Rotate the frame 90 degrees clockwise
-                img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-
-                if frame_queue.full():
-                    frame_queue.get()
-                frame_queue.put(img_rotated)
-
+            pixel_format = (
+                "BGR8"
+                if camera.f.PixelFormat.GetEnumValueList().IsReadable("BGR8")
+                else "Mono8"
+            )
+            camera.f.PixelFormat.SetString(pixel_format)
+            camera.f.TriggerMode.value = neoapi.TriggerMode_Off
+            camera.f.ExposureAuto.SetString("Off")
+            camera.f.ExposureMode.SetString("Timed")
+            camera.f.ExposureTime.Set(14000.0)
+            camera.f.GainAuto.SetString("Off")
+            camera.f.Gain.Set(0.0)
+            camera.f.LUTEnable.Set(True)
+            camera.f.Gamma.Set(0.80)
+            camera.f.BalanceWhiteAuto.SetString("Continuous")
+            camera.f.AcquisitionFrameRateEnable.value = True
+            camera.f.AcquisitionFrameRate.value = 55.0
         except Exception as e:
-            logging.error(
-                f"Error capturing frame from camera {serial_number}: {e}. Retrying camera initialization..."
-            )
-            camera.Disconnect()
-            camera = initialize_camera(serial_number)  # Retry initializing the camera
-        except neoapi.NoImageBufferException as e:
-            logging.error(
-                f"NoImageBufferException on camera {serial_number}: {e}. Retrying camera initialization..."
-            )
-            camera.Disconnect()
-            camera = initialize_camera(serial_number)  # Reinitialize the camera
-        finally:
-            camera.RevokeUserBuffer(buf)  # Always revoke the buffer
+            log_print(f"Error setting camera parameters: {e}")
+            sys.exit(0)
 
-    # Clear all frames in the queue
-    with frame_queue.mutex:
-        frame_queue.queue.clear()
+    def capture_frames(self, serial_number):
+        while not self.stop_event.is_set():
+            if not self.camera_connected_events[serial_number].is_set():
+                log_print(f"Camera {serial_number} not connected. Waiting to capture frames...")
+                time.sleep(1)
+                continue
+            try:
+                with self.camera_locks[serial_number]:
+                    camera = self.cameras[serial_number]
+                    if camera is None:
+                        continue
+                    payloadsize = camera.f.PayloadSize.Get()
+                    buf = CamBuffer(payloadsize)
+                    self.bufs[serial_number] = buf  # Store buf
+                    camera.AddUserBuffer(buf)
+                    camera.SetUserBufferMode(True)
+                    img = camera.GetImage().GetNPArray()
+                if img.size != 0:
+                    # Rotate the frame 90 degrees clockwise
+                    img_rotated = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
+                    if self.frame_queues[serial_number].full():
+                        self.frame_queues[serial_number].get()
+                    self.frame_queues[serial_number].put(img_rotated)
 
-def release_video_resources(camera, buf):
-    try:
-        # Clean up
-        if camera:
-            camera.RevokeUserBuffer(buf)
-            camera.Disconnect()
-            cv2.destroyAllWindows()
-            log_print("Video capture released.")
-        log_print("All OpenCV windows destroyed.")
-    except Exception as e:
-        log_bug(f"Failed to release video resources. Exception: {e}")
+                with self.camera_locks[serial_number]:
+                    camera.RevokeUserBuffer(buf)
+                    self.bufs[serial_number] = None  # Clear buf after revoking
+
+            except neoapi.NeoException as exc:
+                log_print(f"Camera {serial_number} error: {exc}. Attempting to reconnect...")
+                with self.camera_locks[serial_number]:
+                    if self.cameras[serial_number]:
+                        # Revoke buf if it's still allocated
+                        if self.bufs[serial_number]:
+                            camera.RevokeUserBuffer(self.bufs[serial_number])
+                            self.bufs[serial_number] = None
+                        self.cameras[serial_number].Disconnect()
+                        self.cameras[serial_number] = None
+                        self.camera_connected_events[serial_number].clear()
+                time.sleep(3)
+            except Exception as e:
+                log_print(f"Unexpected error in camera {serial_number} capture: {e}")
+                log_bug(f"Unexpected error in camera {serial_number} capture: {e}")
+                time.sleep(3)
+            time.sleep(0.01)
+
+    def get_frame(self, serial_number):
+        if serial_number not in self.frame_queues:
+            return None
+        if not self.frame_queues[serial_number].empty():
+            return self.frame_queues[serial_number].get()
+        else:
+            return None
+
+    def release_video_resources(self, serial_number):
+        try:
+            with self.camera_locks[serial_number]:
+                if self.cameras[serial_number]:
+                    # Revoke buf if it's still allocated
+                    if self.bufs[serial_number]:
+                        self.cameras[serial_number].RevokeUserBuffer(self.bufs[serial_number])
+                        self.bufs[serial_number] = None
+                    self.cameras[serial_number].Disconnect()
+                    log_print(f"Camera {serial_number} disconnected.")
+        except Exception as e:
+            log_bug(f"Failed to release video resources for camera {serial_number}. Exception: {e}")

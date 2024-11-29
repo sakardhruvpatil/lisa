@@ -12,8 +12,6 @@ class State(Enum):
     TRACKING_DECIDED_NOT_CLEAN_PREMATURE = 2
     TRACKING_DECIDED_CLEAN = 3
 
-
-
 # Model loading with error handling
 def load_model(model_path, model_name):
     try:
