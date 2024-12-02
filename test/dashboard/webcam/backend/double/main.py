@@ -35,7 +35,8 @@ app = FastAPI()
 # Allow CORS for frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For testing purposes; specify exact origins in production
+    # For testing purposes; specify exact origins in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,6 +44,7 @@ app.add_middleware(
 
 # Global dictionary to hold camera processors
 camera_processors = {}
+
 
 class CameraProcessor:
     def __init__(self, side, camera_manager):
@@ -67,7 +69,9 @@ class CameraProcessor:
         self.collection = get_daily_collection(self.db, self.side)
         # Fetch last bedsheet number and threshold
         self.bedsheet_count = get_last_bedsheet_number(self.collection)
-        self.CLEAN_THRESHOLD = get_last_threshold(self.threshold_collection, self.history_collection)
+        self.CLEAN_THRESHOLD = get_last_threshold(
+            self.threshold_collection, self.history_collection
+        )
         initialize_history_document(
             self.history_collection, get_current_date_str(), self.CLEAN_THRESHOLD
         )
@@ -108,19 +112,23 @@ class CameraProcessor:
                     self.release_video_resources()
                     self.stop_event.set()
                     print(f"Stopping {self.side} camera.")
-                    print(f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}")
+                    print(
+                        f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}"
+                    )
                     break
 
         except KeyboardInterrupt:
             print(f"Keyboard interrupt caught for {self.side}. Stopping camera.")
             self.release_video_resources()
-            print(f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}")
+            print(
+                f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}"
+            )
             raise
 
     def process_frame(self, img):
         # Crop the image from the top and bottom instead of left and right
         height, width, _ = img.shape
-        cropped_img = img[:, CROP_LEFT:width - CROP_RIGHT]  # Crop left and right
+        cropped_img = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
         self.detect(cropped_img)
 
     def write_decision_to_file(self, decision):
@@ -193,11 +201,11 @@ class CameraProcessor:
                                             )
                                             break  # Assuming one bedsheet per frame
 
-                        log_print(
-                            f"{self.side} camera: Bedsheet Present"
-                            if bedsheet_present
-                            else f"{self.side} camera: Bedsheet Not Present"
-                        )
+                    #    log_print(
+                    #        f"{self.side} camera: Bedsheet Present"
+                    #        if bedsheet_present
+                    #        else f"{self.side} camera: Bedsheet Not Present"
+                    #    )
                     except Exception as e:
                         log_bug(
                             f"{self.side} camera: Error during bedsheet detection. Exception: {e}"
@@ -286,7 +294,6 @@ class CameraProcessor:
                                 ) * 100
                                 clean_percent_real_time = 100 - defect_percent_real_time
 
-                            
                                 # **Draw Bounding Boxes Around Defects**
                                 # Check if bounding box coordinates are available
                                 if (
@@ -628,7 +635,9 @@ class CameraProcessor:
             self.camera_manager.release_video_resources()
             log_print(f"{self.side.capitalize()} camera: Video capture released.")
         except Exception as e:
-            log_bug(f"{self.side.capitalize()} camera: Failed to release video resources. Exception: {e}")
+            log_bug(
+                f"{self.side.capitalize()} camera: Failed to release video resources. Exception: {e}"
+            )
 
 
 # Function to start the Uvicorn server
@@ -700,13 +709,14 @@ async def video_feed(side: str):
                 continue
 
             frame_bytes = buffer.tobytes()
-            
+
             # Yield the frame as an HTTP response for MJPEG streaming
             yield (
                 b"--frame\r\n"
                 b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
             )
-            await asyncio.sleep(0.01)  # Async sleep to avoid blocking the event loop
+            # Async sleep to avoid blocking the event loop
+            await asyncio.sleep(0.01)
 
     return StreamingResponse(
         generate(), media_type="multipart/x-mixed-replace; boundary=frame"
@@ -753,72 +763,82 @@ async def get_analytics(side: str, date: str = None):
     return JSONResponse(content=response_data)
 
 
-@app.get("/daily_analytics/{side}")
-async def get_daily_analytics(side: str):
-    if side not in camera_processors:
-        return JSONResponse(content={"error": "Invalid side."}, status_code=400)
-    camera_processor = camera_processors[side]
-    history_collection = camera_processor.history_collection
-
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
-
-    # Format data for JSON response
+@app.get("/daily_analytics")
+async def get_combined_daily_analytics():
     response_data = []
-    for item in data:
-        # Ensure the date is in 'YYYY-MM-DD' format
-        date_str = item.get("date", "Unknown")
-        if isinstance(date_str, datetime):
-            date_str = date_str.strftime("%Y-%m-%d")
+    aggregated_data = {}
+
+    # Process both cameras
+    for side, camera_processor in camera_processors.items():
+        history_collection = camera_processor.history_collection
+        data = list(history_collection.find())
+
+        for item in data:
+            date_str = item.get("date", "Unknown")
+            if isinstance(date_str, datetime):
+                date_str = date_str.strftime("%Y-%m-%d")
+
+            if date_str not in aggregated_data:
+                aggregated_data[date_str] = {
+                    "total_bedsheets": 0,
+                    "total_accepted": 0,
+                    "total_rejected": 0,
+                }
+
+            aggregated_data[date_str]["total_bedsheets"] += item.get(
+                "total_bedsheets", 0
+            )
+            aggregated_data[date_str]["total_accepted"] += item.get("total_accepted", 0)
+            aggregated_data[date_str]["total_rejected"] += item.get("total_rejected", 0)
+
+    # Format the aggregated data
+    for date_str, counts in aggregated_data.items():
         response_data.append(
             {
                 "date": date_str,
-                "total_bedsheets": item.get("total_bedsheets", 0),
-                "total_accepted": item.get("total_accepted", 0),
-                "total_rejected": item.get("total_rejected", 0),
+                "total_bedsheets": counts["total_bedsheets"],
+                "total_accepted": counts["total_accepted"],
+                "total_rejected": counts["total_rejected"],
             }
         )
+
     return JSONResponse(content=response_data)
 
 
-@app.get("/monthly_analytics/{side}")
-async def get_monthly_analytics(side: str):
-    if side not in camera_processors:
-        return JSONResponse(content={"error": "Invalid side."}, status_code=400)
-    camera_processor = camera_processors[side]
-    history_collection = camera_processor.history_collection
+@app.get("/monthly_analytics")
+async def get_combined_monthly_analytics():
+    aggregated_data = {}
 
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
+    # Process both cameras
+    for side, camera_processor in camera_processors.items():
+        history_collection = camera_processor.history_collection
+        data = list(history_collection.find())
 
-    # Prepare a dictionary to aggregate monthly data
-    monthly_aggregated = {}
+        for item in data:
+            date_str = item.get("date", "Unknown")
+            if date_str == "Unknown":
+                continue
 
-    for item in data:
-        date_str = item.get("date", "Unknown")
-        if date_str == "Unknown":
-            continue  # Skip if date is unknown
+            # Parse the date string to get the month and year
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            month_year = date_obj.strftime("%B %Y")
 
-        # Parse the date string to get the month and year
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        month_year = date_obj.strftime("%B %Y")  # E.g., "November 2024"
+            if month_year not in aggregated_data:
+                aggregated_data[month_year] = {
+                    "total_bedsheets": 0,
+                    "accepted": 0,
+                    "rejected": 0,
+                }
 
-        if month_year not in monthly_aggregated:
-            monthly_aggregated[month_year] = {
-                "total_bedsheets": 0,
-                "accepted": 0,
-                "rejected": 0,
-            }
+            aggregated_data[month_year]["total_bedsheets"] += item.get(
+                "total_bedsheets", 0
+            )
+            aggregated_data[month_year]["accepted"] += item.get("total_accepted", 0)
+            aggregated_data[month_year]["rejected"] += item.get("total_rejected", 0)
 
-        monthly_aggregated[month_year]["total_bedsheets"] += item.get(
-            "total_bedsheets", 0
-        )
-        monthly_aggregated[month_year]["accepted"] += item.get("total_accepted", 0)
-        monthly_aggregated[month_year]["rejected"] += item.get("total_rejected", 0)
-
-    # Convert aggregated data into a list sorted by date
+    # Format the aggregated data
     result_data = []
-    for month_year, counts in monthly_aggregated.items():
+    for month_year, counts in aggregated_data.items():
         result_data.append(
             {
                 "month": month_year,
@@ -874,16 +894,19 @@ async def websocket_todays_counts(websocket: WebSocket, side: str):
     except WebSocketDisconnect:
         print(f"Client disconnected from {side} camera WebSocket")
 
+
 if __name__ == "__main__":
     # Start the Uvicorn server in a separate thread
     uvicorn_thread = threading.Thread(target=start_uvicorn, daemon=True)
     uvicorn_thread.start()
 
     # Initialize the CameraManager
-    camera_manager = CameraManager()  # One CameraManager instance to handle both cameras
+    camera_manager = (
+        CameraManager()
+    )  # One CameraManager instance to handle both cameras
     camera_manager.initialize_video_capture("left", VIDEO_SOURCE_LEFT)
     camera_manager.initialize_video_capture("right", VIDEO_SOURCE_RIGHT)
-    
+
     # Create CameraProcessor instances
     camera_processors["left"] = CameraProcessor("left", camera_manager)
     camera_processors["right"] = CameraProcessor("right", camera_manager)
@@ -902,9 +925,9 @@ if __name__ == "__main__":
         # Stop the camera processors and release resources
         camera_processors["left"].stop()
         camera_processors["right"].stop()
-        
+
         # Release video resources from the camera manager
         camera_manager.release_video_resources()
-        
+
         # Optionally, you can also destroy OpenCV windows
         print("All OpenCV windows destroyed.")

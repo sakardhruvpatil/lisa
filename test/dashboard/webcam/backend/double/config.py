@@ -38,8 +38,8 @@ HISTORY_FILENAME = "history.csv"
 VIDEO_FPS = 25  # Default FPS if not available
 
 # Define the amount to crop from the left and right
-CROP_LEFT = 150  # Pixels to crop from the left
-CROP_RIGHT = 80  # Pixels to crop from the right
+CROP_LEFT = 1  # Pixels to crop from the left
+CROP_RIGHT = 1  # Pixels to crop from the right
 CROP_TOP = 130  # Pixels to crop from the top
 CROP_BOTTOM = 130  # Pixels to crop from the bottom
 
