@@ -750,72 +750,83 @@ async def get_analytics(side: str, date: str = None):
     return JSONResponse(content=response_data)
 
 
-@app.get("/daily_analytics/{side}")
-async def get_daily_analytics(side: str):
-    if side not in camera_processors:
-        return JSONResponse(content={"error": "Invalid side."}, status_code=400)
-    camera_processor = camera_processors[side]
-    history_collection = camera_processor.history_collection
 
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
-
-    # Format data for JSON response
+@app.get("/daily_analytics")
+async def get_combined_daily_analytics():
     response_data = []
-    for item in data:
-        # Ensure the date is in 'YYYY-MM-DD' format
-        date_str = item.get("date", "Unknown")
-        if isinstance(date_str, datetime):
-            date_str = date_str.strftime("%Y-%m-%d")
+    aggregated_data = {}
+
+    # Process both cameras
+    for side, camera_processor in camera_processors.items():
+        history_collection = camera_processor.history_collection
+        data = list(history_collection.find())
+
+        for item in data:
+            date_str = item.get("date", "Unknown")
+            if isinstance(date_str, datetime):
+                date_str = date_str.strftime("%Y-%m-%d")
+
+            if date_str not in aggregated_data:
+                aggregated_data[date_str] = {
+                    "total_bedsheets": 0,
+                    "total_accepted": 0,
+                    "total_rejected": 0,
+                }
+
+            aggregated_data[date_str]["total_bedsheets"] += item.get(
+                "total_bedsheets", 0
+            )
+            aggregated_data[date_str]["total_accepted"] += item.get("total_accepted", 0)
+            aggregated_data[date_str]["total_rejected"] += item.get("total_rejected", 0)
+
+    # Format the aggregated data
+    for date_str, counts in aggregated_data.items():
         response_data.append(
             {
                 "date": date_str,
-                "total_bedsheets": item.get("total_bedsheets", 0),
-                "total_accepted": item.get("total_accepted", 0),
-                "total_rejected": item.get("total_rejected", 0),
+                "total_bedsheets": counts["total_bedsheets"],
+                "total_accepted": counts["total_accepted"],
+                "total_rejected": counts["total_rejected"],
             }
         )
+
     return JSONResponse(content=response_data)
 
 
-@app.get("/monthly_analytics/{side}")
-async def get_monthly_analytics(side: str):
-    if side not in camera_processors:
-        return JSONResponse(content={"error": "Invalid side."}, status_code=400)
-    camera_processor = camera_processors[side]
-    history_collection = camera_processor.history_collection
+@app.get("/monthly_analytics")
+async def get_combined_monthly_analytics():
+    aggregated_data = {}
 
-    # Fetch all documents from the 'history_collection'
-    data = list(history_collection.find())
+    # Process both cameras
+    for side, camera_processor in camera_processors.items():
+        history_collection = camera_processor.history_collection
+        data = list(history_collection.find())
 
-    # Prepare a dictionary to aggregate monthly data
-    monthly_aggregated = {}
+        for item in data:
+            date_str = item.get("date", "Unknown")
+            if date_str == "Unknown":
+                continue
 
-    for item in data:
-        date_str = item.get("date", "Unknown")
-        if date_str == "Unknown":
-            continue  # Skip if date is unknown
+            # Parse the date string to get the month and year
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            month_year = date_obj.strftime("%B %Y")
 
-        # Parse the date string to get the month and year
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        month_year = date_obj.strftime("%B %Y")  # E.g., "November 2024"
+            if month_year not in aggregated_data:
+                aggregated_data[month_year] = {
+                    "total_bedsheets": 0,
+                    "accepted": 0,
+                    "rejected": 0,
+                }
 
-        if month_year not in monthly_aggregated:
-            monthly_aggregated[month_year] = {
-                "total_bedsheets": 0,
-                "accepted": 0,
-                "rejected": 0,
-            }
+            aggregated_data[month_year]["total_bedsheets"] += item.get(
+                "total_bedsheets", 0
+            )
+            aggregated_data[month_year]["accepted"] += item.get("total_accepted", 0)
+            aggregated_data[month_year]["rejected"] += item.get("total_rejected", 0)
 
-        monthly_aggregated[month_year]["total_bedsheets"] += item.get(
-            "total_bedsheets", 0
-        )
-        monthly_aggregated[month_year]["accepted"] += item.get("total_accepted", 0)
-        monthly_aggregated[month_year]["rejected"] += item.get("total_rejected", 0)
-
-    # Convert aggregated data into a list sorted by date
+    # Format the aggregated data
     result_data = []
-    for month_year, counts in monthly_aggregated.items():
+    for month_year, counts in aggregated_data.items():
         result_data.append(
             {
                 "month": month_year,

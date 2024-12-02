@@ -36,13 +36,14 @@ const AnalyticsData = () => {
         const fetchDailyData = async () => {
             try {
                 const response = await fetch('http://localhost:8000/daily_analytics');
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const data = await response.json();
-                setDailyData(data);
+                setDailyData(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error('Error fetching daily analytics data:', error);
+                setDailyData([]);
             }
         };
-
         fetchDailyData();
     }, []);
 
