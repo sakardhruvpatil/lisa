@@ -126,7 +126,7 @@ a:hover {
     position: fixed;
     top: 0;
     right: 0;
-    width: 36%;
+    width: 48%;
     /* Adjust width of webcam section */
     height: 100vh;
     /* Full height */
@@ -151,7 +151,7 @@ a:hover {
 .dashboard {
     background-color: #ffffff;
     height: 100vh;
-    width: 54vw;
+    width: 41vw;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

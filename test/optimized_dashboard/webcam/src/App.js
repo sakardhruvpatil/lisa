@@ -1,7 +1,7 @@
 // App.js
 
 import React, { useState, useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import './App.css';
 import Navbar from './Navbar';
 import About from './Pages/About';
@@ -11,14 +11,10 @@ import WebcamCapture from './WebcamCapture';
 import Settings from './Pages/Settings';
 import logo from './sakar.png'; // Import the logo image
 
-// Remove unnecessary import of HomePage
-// import HomePage from './Pages/HomePage';
-
 // Main App component
 const App = () => {
-	const location = useLocation();
-	const [cameraLayout, setCameraLayout] = useState('vertical');
-	const [mode, setMode] = useState('demo'); // Default to demo mode
+	const [cameraLayout, setCameraLayout] = useState('horizontal');
+	const [mode, setMode] = useState('production'); // Default to demo mode
 	const [acceptanceRate, setAcceptanceRate] = useState(95); // Default acceptance rate
 	const [showLayoutModal, setShowLayoutModal] = useState(false);
 	const [screenResolution, setScreenResolution] = useState({
@@ -27,35 +23,19 @@ const App = () => {
 	});
 
 	// Handle screen resolution changes
-	const handleResize = () => {
-		setScreenResolution({
-			width: window.innerWidth,
-			height: window.innerHeight,
-		});
-	};
-
-	// Fetch the current threshold from the backend when the app starts
 	useEffect(() => {
-		const fetchThreshold = async () => {
-			try {
-				const response = await fetch('http://localhost:8000/get_current_threshold');
-				const result = await response.json();
-				if (result.threshold !== undefined) {
-					setAcceptanceRate(result.threshold);
-				}
-			} catch (error) {
-				console.error('Error fetching current threshold:', error);
-			}
+		const handleResize = () => {
+			setScreenResolution({
+				width: window.innerWidth,
+				height: window.innerHeight,
+			});
 		};
 
-		fetchThreshold();
-	}, []);
-
-	useEffect(() => {
 		window.addEventListener('resize', handleResize);
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
+	// Adjust camera layout based on screen width
 	useEffect(() => {
 		if (screenResolution.width < 600) {
 			setCameraLayout('vertical');
@@ -64,6 +44,7 @@ const App = () => {
 		}
 	}, [screenResolution]);
 
+	// Handle mode change (demo or production)
 	const handleModeChange = (newMode) => {
 		setMode(newMode);
 		if (newMode === 'production') {
@@ -71,6 +52,7 @@ const App = () => {
 		}
 	};
 
+	// Handle camera layout selection
 	const handleLayoutChange = (layout) => {
 		setCameraLayout(layout);
 		setShowLayoutModal(false);
@@ -129,9 +111,7 @@ const App = () => {
 					<div className="modal-content">
 						<h2>Select Camera Layout</h2>
 						<button onClick={() => handleLayoutChange('vertical')}>Vertical</button>
-						<button onClick={() => handleLayoutChange('horizontal')}>
-							Horizontal
-						</button>
+						<button onClick={() => handleLayoutChange('horizontal')}>Horizontal</button>
 					</div>
 				</div>
 			)}
@@ -144,50 +124,84 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 	const [speed, setSpeed] = useState(0);
 	const [currentTime, setCurrentTime] = useState(new Date());
 
-	// State to hold counts
-	const [countData, setCountData] = useState({
+	// State to hold counts for left and right cameras
+	const [countDataLeft, setCountDataLeft] = useState({
 		total_bedsheets: 0,
 		total_accepted: 0,
 		total_rejected: 0,
 	});
 
-	// WebSocket connection to receive real-time counts
+	const [countDataRight, setCountDataRight] = useState({
+		total_bedsheets: 0,
+		total_accepted: 0,
+		total_rejected: 0,
+	});
+
+	// WebSocket connections for left and right cameras
 	useEffect(() => {
-		let ws;
+		let wsLeft;
+		let wsRight;
 
-		const connectWebSocket = () => {
-			ws = new WebSocket('ws://localhost:8000/ws/todays_counts');
+		const connectWebSocketLeft = () => {
+			wsLeft = new WebSocket('ws://localhost:8000/ws/todays_counts/left');
 
-			ws.onmessage = (event) => {
+			wsLeft.onmessage = (event) => {
 				const data = JSON.parse(event.data);
-				setCountData(data);
+				setCountDataLeft(data);
 			};
 
-			ws.onerror = (error) => {
-				console.error('WebSocket error:', error);
+			wsLeft.onerror = (error) => {
+				console.error('WebSocket error (left):', error);
 			};
 
-			ws.onclose = () => {
-				console.log('WebSocket connection closed, attempting to reconnect...');
-				setTimeout(connectWebSocket, 5000); // Try to reconnect after 5 seconds
+			wsLeft.onclose = () => {
+				console.log('WebSocket connection closed (left), attempting to reconnect...');
+				setTimeout(connectWebSocketLeft, 5000); // Reconnect after 5 seconds
 			};
 		};
 
-		connectWebSocket();
+		const connectWebSocketRight = () => {
+			wsRight = new WebSocket('ws://localhost:8000/ws/todays_counts/right');
 
-		// Clean up the WebSocket connection when the component unmounts
+			wsRight.onmessage = (event) => {
+				const data = JSON.parse(event.data);
+				setCountDataRight(data);
+			};
+
+			wsRight.onerror = (error) => {
+				console.error('WebSocket error (right):', error);
+			};
+
+			wsRight.onclose = () => {
+				console.log('WebSocket connection closed (right), attempting to reconnect...');
+				setTimeout(connectWebSocketRight, 5000); // Reconnect after 5 seconds
+			};
+		};
+
+		if (mode === 'production') {
+			connectWebSocketLeft();
+			connectWebSocketRight();
+		} else {
+			// In demo mode, only connect left WebSocket
+			connectWebSocketLeft();
+		}
+
+		// Clean up WebSocket connections on unmount or mode change
 		return () => {
-			if (ws) ws.close();
+			if (wsLeft) wsLeft.close();
+			if (wsRight) wsRight.close();
 		};
-	}, []);
+	}, [mode]);
 
+	// Update current time every second
 	useEffect(() => {
 		const timer = setInterval(() => {
 			setCurrentTime(new Date());
-		}, 500);
+		}, 1000); // Update every second
 		return () => clearInterval(timer);
 	}, []);
 
+	// Function to change conveyor speed
 	const changeSpeed = async (action) => {
 		try {
 			const response = await fetch('http://localhost:5007/change-speed', {
@@ -212,36 +226,68 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 			</div>
 
 			<div className="current-time">
-				<p>{currentTime.toLocaleString('en-US', {
-					weekday: 'long',
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit',
-					hour12: true
-				})}</p>
+				<p>
+					{currentTime.toLocaleString('en-US', {
+						weekday: 'long',
+						year: 'numeric',
+						month: 'long',
+						day: 'numeric',
+						hour: '2-digit',
+						minute: '2-digit',
+						hour12: true,
+					})}
+				</p>
 			</div>
 
+			{/* Display counts in separate tables for left and right cameras */}
+			<div className={`tables-container ${cameraLayout}`}>
+				{mode === 'demo' || mode === 'production' ? (
+					<div className="table-wrapper">
+						<h3>Left Camera Counts</h3>
+						<div className="table-container">
+							<table className="summary-table">
+								<thead>
+									<tr>
+										<th>Accepted</th>
+										<th>Rejected</th>
+										<th>Total Bedsheets</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td>{countDataLeft.total_accepted}</td>
+										<td>{countDataLeft.total_rejected}</td>
+										<td>{countDataLeft.total_bedsheets}</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				) : null}
 
-			{/* Display today's data counts in a table format */}
-			<div className="table-container">
-				<table className="summary-table">
-					<thead>
-						<tr>
-							<th>Accepted</th>
-							<th>Rejected</th>
-							<th>Total Bedsheets</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>{countData.total_accepted}</td>
-							<td>{countData.total_rejected}</td>
-							<td>{countData.total_bedsheets}</td>
-						</tr>
-					</tbody>
-				</table>
+				{mode === 'production' && (
+					<div className="table-wrapper">
+						<h3>Right Camera Counts</h3>
+						<div className="table-container">
+							<table className="summary-table">
+								<thead>
+									<tr>
+										<th>Accepted</th>
+										<th>Rejected</th>
+										<th>Total Bedsheets</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td>{countDataRight.total_accepted}</td>
+										<td>{countDataRight.total_rejected}</td>
+										<td>{countDataRight.total_bedsheets}</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				)}
 			</div>
 
 			{/* Centered Controls */}
