@@ -239,11 +239,124 @@ body {
     margin: 10px 0;
     text-align: center;
 }
-
-.about-container{
-    margin: 10px 0;
-    text-align: center;
+/* Container and Header Styles */
+.about-container {
+    padding: 40px 20px;
+    font-family: 'Roboto', sans-serif;
+    /* Removed background color and gradient */
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    margin-top: 50px;
 }
+
+.about-heading {
+    font-size: 42px;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+}
+
+.about-description {
+    font-size: 18px;
+    color: #555;
+    line-height: 1.8;
+    text-align: center;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+/* Company Info and Features Section */
+.company-info, .lisa-features {
+    margin: 40px 0;
+}
+
+.section-heading {
+    font-size: 36px;
+    color: #fc981e;
+    text-align: center;
+    margin-bottom: 25px;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); /* Soft shadow for text */
+}
+
+.company-text {
+    font-size: 20px;
+    color: #333;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    text-align: justify;
+    transition: all 0.3s ease;
+}
+
+.company-text:hover {
+    transform: scale(1.02); /* Subtle zoom effect for hover */
+    color: #fc981e; /* Change text color on hover */
+}
+
+/* List Styles */
+.features-list, .values-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+    text-align: left;
+}
+
+.features-list li, .values-list li {
+    font-size: 20px;
+    color: #333;
+    margin: 15px 0;
+    line-height: 1.6;
+    position: relative;
+    padding-left: 25px;
+}
+
+.features-list li:before, .values-list li:before {
+    content: '✔'; /* Add a checkmark icon before each item */
+    position: absolute;
+    left: 0;
+    color: #fc981e;
+    font-size: 20px;
+    top: 0;
+}
+
+/* Values List */
+.values-list li {
+    font-weight: bold;
+    color: #fc981e;
+}
+
+.features-list li:hover, .values-list li:hover {
+    color: #fc981e;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .about-container {
+        padding: 20px;
+    }
+
+    .about-heading {
+        font-size: 30px;
+    }
+
+    .about-description {
+        font-size: 16px;
+    }
+
+    .section-heading {
+        font-size: 24px;
+    }
+
+    .features-list li, .values-list li {
+        font-size: 16px;
+    }
+}
+
 
 /* Controls styling */
 .controls {

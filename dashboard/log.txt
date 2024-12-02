@@ -9,3 +9,11 @@ Current Speed: 30
 Current Speed: 40
 Current Speed: 50
 Current Speed: 60
+Current Speed: 70
+Current Speed: 80
+Current Speed: 90
+Current Speed: 80
+Current Speed: 70
+Current Speed: 60
+Current Speed: 50
+Current Speed: 60
