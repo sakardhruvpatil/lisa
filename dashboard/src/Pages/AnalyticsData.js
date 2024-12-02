@@ -24,7 +24,7 @@ ChartJS.register(
   Legend
 );
 
-const AnalyticsData = () => {
+const AnalyticsData= () => {
   const [dailyData, setDailyData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);

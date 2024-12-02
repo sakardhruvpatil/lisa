@@ -13,7 +13,7 @@ body {
     height: 100vh;
     overflow: hidden;
     flex-direction: row;
-   
+    /* Align content and navbar horizontally */
 }
 
 .content.horizontal-layout {
@@ -34,17 +34,25 @@ body {
 .logo-container {
     padding: 10px 10px;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-direction: column; /* Stack children vertically */
+    justify-content: center; /* Center vertically */
+    align-items: center; /* Center horizontally */
     margin-bottom: 10px; /* Adds space below the logo */
 }
 
 /* Logo Image */
 .logo {
-    max-width: 400px; /* Adjust as needed */
+    max-width: 600px; /* Adjust as needed */
     height: auto;
 }
 
+/* Logo Text */
+.linen {
+    font-size: 24px; /* Adjust font size as needed */
+    color: #333; /* Set text color */
+    margin-top: 10px; /* Adds space between logo and text */
+    text-align: center; /* Centers the text */
+}
 /* Main Content Section */
 .content {
     padding: 10px;
@@ -58,46 +66,83 @@ body {
     box-sizing: border-box;
 }
 
-
 /* Webcam Section */
 .webcam-section {
     position: fixed;
     top: 0;
     right: 0;
-    width: 28%;
-    /* Adjust width of webcam section */
-    height: 100vh;
-    /* Full height */
-    background-color: #e0e0e0;
+    width: 50%;
+    height: 98vh;
+    background-color: #d1cdcd; /* Darker background for contrast */
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 15px;
     z-index: 1;
+    border-radius: 30px; /* Curved corners */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    transition: all 0.3s ease; /* Smooth transition */
 }
 
+/* Adjusting Webcam Container */
 .webcam-container {
     display: flex;
-    flex-direction: column;
-    /* Change to row for side-by-side in production */
+    flex-direction: column; /* Stack elements vertically */
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 15px; /* Increased space between items */
+    max-width: 100%;
+    width: 90%; /* Ensure responsiveness */
+}
+/* Camera Label (left and right camera names) */
+.webcam-container h3 {
+    font-size: 1.2rem;
+    font-weight: bold;
+    
+    margin-bottom: 10px; /* Space between label and webcam feed */
+    color: #333;
+  }
+
+/* Responsive Webcam Section */
+@media (max-width: 768px) {
+    .webcam-section {
+        width: 80%; /* Adjust width on smaller screens */
+    }
+
+    .webcam-container {
+        flex-direction: column; /* Stack webcams vertically on smaller screens */
+    }
+}
+
+/* Webcam Container Video Styling */
+.webcam-container video {
+    border-radius: 15px; /* Rounded corners for videos */
+    border: 3px solid #fc981e; /* Orange border for contrast */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow for videos */
+    transition: transform 0.3s ease-in-out; /* Smooth hover effect */
+}
+
+/* Hover Effect for Webcam Videos */
+.webcam-container video:hover {
+    transform: scale(1.05); /* Slight zoom effect on hover */
 }
 
 /* Dashboard Content */
 .dashboard {
     background-color: #ffffff;
     height: 100vh;
-    width: 59vw;
-    overflow-y: auto;
+    width: 39vw;
+    overflow-y: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
     color: #333;
     box-sizing: border-box;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px #333(0, 0, 0, 0.1); /* Shadow for depth */
+    transition: all 0.3s ease;
 }
-
 /* Main heading */
 .main-heading {
     font-size: 40px;
@@ -129,7 +174,6 @@ body {
     color: #333;
     margin-top: 50px; /* Added margin-top for spacing */
 }
-
 .analytics-data{
     margin: 10px 0;
     text-align: center;
@@ -191,29 +235,31 @@ button:hover {
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 50px; /* Added margin-top for spacing */
+    margin-top: 0px; /* Added margin-top for spacing */
 }
 
 /* Summary Table */
 .summary-table {
-    width: 100%;
-    max-width: 600px;
-    margin: 25px auto;
+    width: 400%;
+    max-width: 780px;
+    margin: 10px 0 10px -210px; /* Shift table 50px to the left */
     border-collapse: collapse;
-    
 }
 
 .summary-table th,
 .summary-table td {
     border: 1px solid #ddd;
     padding: 12px;
+    font-size: 28px;
     text-align: center;
+    font-weight: bold;
 }
 
 .summary-table th {
     background-color: #fc981e;
     color: white;
 }
+
 /* Settings Page Styles */
 .settings-container {
     padding: 20px;
@@ -329,10 +375,3 @@ input[type="date"]:focus {
     outline: none;
     border-color: #fc981e;
 }
-
-
-
-
-
-
-

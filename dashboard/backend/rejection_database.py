@@ -346,8 +346,8 @@ DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
 # Models
 
 # Load the trained YOLOv8 models
-bedsheet_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.pt")
-defect_model = YOLO("/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt")
+bedsheet_model = YOLO("/home/sakar04/Documents/Ronak/lisa/models/bedsheet_v11.pt")
+defect_model = YOLO("/home/sakar04/Documents/Ronak/lisa/models/defect.pt")
 
 
 # App
@@ -712,7 +712,7 @@ def process_frames():
                     conf=defect_conf_threshold,
                     verbose=False,
                     persist=True,
-                    tracker="/home/sakar03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml",
+                    tracker="/home/sakar04/Documents/Ronak/lisa/models/botsort_defect.yaml",
                 )
 
                 if defect_results:

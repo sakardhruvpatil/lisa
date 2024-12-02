@@ -3,5 +3,5 @@ dashboard_Electron/node_modules/
 dashboard_Electron/.pnp
 dashboard_Electron/.pnp.js
 dashboard_Electron/server/node_modules/
-dashboard/node_modules
-dashboard/build
+dashboard/node_modules/
+dashboard/build/
