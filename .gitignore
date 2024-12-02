@@ -1,0 +1,155 @@
+# Ignore all mp4 and avi files in the project
+*.mp4
+*.avi
+*.txt
+*.csv
+*.pyc
+
+# dependencies
+test/dashboard/node_modules
+test/dashboard/.pnp
+test/dashboard/.pnp.js
+test/dashboard/server/node_modules
+
+# testing
+test/dashboard/coverage/
+
+# production
+test/dashboard/build/
+
+# misc
+test/dashboard/.DS_Store
+test/dashboard/.env.local
+test/dashboard/.env.development.local
+test/dashboard/.env.test.local
+test/dashboard/.env.production.local
+
+test/dashboard/npm-debug.log*
+test/dashboard/yarn-debug.log*
+test/dashboard/yarn-error.log*
+
+
+# dependencies
+test/dashboard2/node_modules
+test/dashboard2/.pnp
+test/dashboard2/.pnp.js
+test/dashboard2/server/node_modules
+
+# testing
+test/dashboard2/coverage/
+
+# production
+test/dashboard2/build/
+
+# misc
+test/dashboard2/.DS_Store
+test/dashboard2/.env.local
+test/dashboard2/.env.development.local
+test/dashboard2/.env.test.local
+test/dashboard2/.env.production.local
+
+test/dashboard2/npm-debug.log*
+test/dashboard2/yarn-debug.log*
+test/dashboard2/yarn-error.log*
+
+
+
+# dependencies
+test/demo_baumer/dashboard/node_modules
+test/demo_baumer/dashboard/.pnp
+test/demo_baumer/dashboard/.pnp.js
+test/demo_baumer/dashboard/server/node_modules
+
+# testing
+test/demo_baumer/dashboard/coverage/
+
+# production
+test/demo_baumer/dashboard/build/
+
+# misc
+test/demo_baumer/dashboard/.DS_Store
+test/demo_baumer/dashboard/.env.local
+test/demo_baumer/dashboard/.env.development.local
+test/demo_baumer/dashboard/.env.test.local
+test/demo_baumer/dashboard/.env.production.local
+
+test/demo_baumer/dashboard/npm-debug.log*
+test/demo_baumer/dashboard/yarn-debug.log*
+test/demo_baumer/dashboard/yarn-error.log*
+
+
+# dependencies
+test/dashboard/basler/node_modules
+test/dashboard/basler/.pnp
+test/dashboard/basler/.pnp.js
+test/dashboard/basler/server/node_modules
+
+# testing
+test/dashboard/basler/coverage/
+
+# production
+test/dashboard/basler/build/
+
+# misc
+test/dashboard/basler/.DS_Store
+test/dashboard/basler/.env.local
+test/dashboard/basler/.env.development.local
+test/dashboard/basler/.env.test.local
+test/dashboard/basler/.env.production.local
+
+test/dashboard/basler/npm-debug.log*
+test/dashboard/basler/yarn-debug.log*
+test/dashboard/basler/yarn-error.log*
+
+
+
+# dependencies
+test/dashboard/webcam/node_modules
+test/dashboard/webcam/.pnp
+test/dashboard/webcam/.pnp.js
+test/dashboard/webcam/server/node_modules
+
+# testing
+test/dashboard/webcam/coverage/
+
+# production
+test/dashboard/webcam/build/
+
+# misc
+test/dashboard/webcam/.DS_Store
+test/dashboard/webcam/.env.local
+test/dashboard/webcam/.env.development.local
+test/dashboard/webcam/.env.test.local
+test/dashboard/webcam/.env.production.local
+
+test/dashboard/webcam/npm-debug.log*
+test/dashboard/webcam/yarn-debug.log*
+test/dashboard/webcam/yarn-error.log*
+
+
+
+
+# dependencies
+test/hadapsar/node_modules
+test/hadapsar/.pnp
+test/hadapsar/.pnp.js
+test/hadapsar/server/node_modules
+
+# testing
+test/hadapsar/coverage/
+
+# production
+test/hadapsar/build/
+
+# misc
+test/hadapsar/.DS_Store
+test/hadapsar/.env.local
+test/hadapsar/.env.development.local
+test/hadapsar/.env.test.local
+test/hadapsar/.env.production.local
+
+test/hadapsar/npm-debug.log*
+test/hadapsar/yarn-debug.log*
+test/hadapsar/yarn-error.log*
+
+
