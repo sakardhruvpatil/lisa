@@ -65,9 +65,22 @@ const App = () => {
 				<div className="dashboard">
 					{/* Logo Section */}
 					<div className="logo-container">
-						<img src={logo} alt="Logo" className="logo" />
-						<h1 className="Linen "> Linen Inspection and Sorting Assistant </h1> {/* Added name below the logo */}
-					</div>
+    <img src={logo} alt="Logo" className="logo" />
+    <h1 className="Linen">
+        <span className="highlight-first-letter">L</span>inen
+        <span className="word-gap"> </span>
+        <span className="highlight-first-letter">I</span>nspection
+        <span className="word-gap"> </span>
+        &
+        <span className="word-gap"> </span>
+        <span className="highlight-first-letter">S</span>orting
+        <span className="word-gap"> </span>
+        <span className="highlight-first-letter">A</span>ssistant
+    </h1>
+</div>
+
+
+
 					<Routes>
 						<Route
 							path="/"
