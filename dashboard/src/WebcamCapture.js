@@ -60,68 +60,100 @@ const WebcamCapture = ({ mode, cameraLayout }) => {
 	const videoSrc = 'http://localhost:8000/video_feed'; // Video feed from FastAPI
 
 	return (
-		<div style={{ display: cameraLayout === 'vertical' ? 'block' : 'flex' }}>
-			{isDemoMode ? (
-				// In demo mode, show video feed from backend
-				<div style={{ width: '100%', margin: '5px' }}>
-					<img
-						src={videoSrc}
-						alt="Video Stream"
-						style={{ width: '100%', height: '400px', objectFit: 'cover' }}
-						onError={(e) => {
-							e.target.onerror = null;
-							e.target.src = '';
-							console.error('Failed to load video feed from backend.');
-						}}
-					/>
+		<div style={{ display: cameraLayout === 'vertical' ? 'block' : 'flex', justifyContent: 'center' }}>
+		  {isDemoMode ? (
+			// In demo mode, show video feed from backend
+			<div style={{ width: '100%', margin: '5px' }}>
+			  <img
+				src={videoSrc}
+				alt="Video Stream"
+				style={{
+				  width: '100%',
+				  height: '400px',
+				  objectFit: 'cover',
+				  borderRadius: '15px', // Rounded corners for demo video
+				  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', // Add subtle shadow
+				}}
+				onError={(e) => {
+				  e.target.onerror = null;
+				  e.target.src = '';
+				  console.error('Failed to load video feed from backend.');
+				}}
+			  />
+			</div>
+		  ) : (
+			permissionsGranted && videoDeviceIds.length > 0 ? (
+			  <>
+				{/* First camera (always visible) */}
+				<div
+				  style={{
+					width: cameraLayout === 'vertical' ? '100%' : '78%', // Adjust based on layout
+					margin: '5px',
+					borderRadius: '15px',
+					overflow: 'hidden',
+					boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', // Shadow for depth
+				  }}
+				>
+				  <h3 style={{ textAlign: 'center', color: '#333', marginBottom: '10px' }}>Left Camera</h3>
+				  <Webcam
+					audio={false}
+					ref={webcamRef1}
+					screenshotFormat="image/jpeg"
+					videoConstraints={{ deviceId: { exact: videoDeviceIds[0] } }}
+					style={{
+					  width: '100%',
+					  height: '500px',
+					  objectFit: 'cover', // Ensure video fits within container
+					  borderRadius: '15px', // Curved corners on the webcam
+					}}
+					onUserMedia={(stream) => {
+					  // Store the video stream in the ref to persist it
+					  if (!videoStreamRef.current) {
+						videoStreamRef.current = stream;
+					  }
+					}}
+				  />
 				</div>
+	
+				{/* Second camera */}
+				{videoDeviceIds[1] && (
+				  <div
+					style={{
+					  width: cameraLayout === 'vertical' ? '100%' : '78%', // Adjust based on layout
+					  margin: '5px',
+					  borderRadius: '15px',
+					  overflow: 'hidden',
+					  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', // Shadow for depth
+					}}
+				  >
+					<h3 style={{ textAlign: 'center', color: '#333', marginBottom: '10px' }}>Right Camera</h3>
+					<Webcam
+					  audio={false}
+					  ref={webcamRef2}
+					  screenshotFormat="image/jpeg"
+					  videoConstraints={{ deviceId: { exact: videoDeviceIds[1] } }}
+					  style={{
+						width: '100%',
+						height: '500px',
+						objectFit: 'cover', // Ensure video fits within container
+						borderRadius: '15px', // Curved corners on the webcam
+					  }}
+					  onUserMedia={(stream) => {
+						// Store the video stream in the ref to persist it
+						if (!videoStreamRef.current) {
+						  videoStreamRef.current = stream;
+						}
+					  }}
+					/>
+				  </div>
+				)}
+			  </>
 			) : (
-				permissionsGranted && videoDeviceIds.length > 0 ? (
-					<>
-						{/* First camera (always visible) */}
-						<div style={{ width: cameraLayout === 'vertical' ? '100%' : '78%', margin: '5px' }}>
-						<h3>Left Camera</h3> {/* Left Camera Name */}
-							<Webcam
-								audio={false}
-								ref={webcamRef1}
-								screenshotFormat="image/jpeg"
-								videoConstraints={{ deviceId: { exact: videoDeviceIds[0] } }}
-								style={{ width: '100%', height: '600px' }} // Adjusted to moderate height
-								onUserMedia={(stream) => {
-									// Store the video stream in the ref to persist it
-									if (!videoStreamRef.current) {
-										videoStreamRef.current = stream;
-									}
-								}}
-							/>
-						</div>
-
-						{/* Second camera */}
-						{videoDeviceIds[1] && (
-							<div style={{ width: cameraLayout === 'vertical' ? '100%' : '78%', margin: '5px' }}>
-								<h3>Right Camera</h3> {/* Right Camera Name */}
-								<Webcam
-									audio={false}
-									ref={webcamRef2}
-									screenshotFormat="image/jpeg"
-									videoConstraints={{ deviceId: { exact: videoDeviceIds[1] } }}
-									style={{ width: '100%', height: '600px' }} // Adjusted to moderate height
-									onUserMedia={(stream) => {
-										// Store the video stream in the ref to persist it
-										if (!videoStreamRef.current) {
-											videoStreamRef.current = stream;
-										}
-									}}
-								/>
-							</div>
-						)}
-					</>
-				) : (
-					<p>Loading cameras...</p>
-				)
-			)}
+			  <p>Loading cameras...</p>
+			)
+		  )}
 		</div>
-	);
-};
-
-export default WebcamCapture;
+	  );
+	};
+	
+	export default WebcamCapture;
