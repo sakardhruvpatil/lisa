@@ -13,7 +13,7 @@ import logo from './sakar.png'; // Import the logo image
 
 // Main App component
 const App = () => {
-	const [cameraLayout, setCameraLayout] = useState('horizontal');
+	const [cameraLayout, setCameraLayout] = useState('vertical');
 	const [mode, setMode] = useState('production'); // Default to demo mode
 	const [acceptanceRate, setAcceptanceRate] = useState(95); // Default acceptance rate
 	const [showLayoutModal, setShowLayoutModal] = useState(false);

@@ -48,8 +48,10 @@ body {
 
 /* Logo Text */
 .linen {
-    font-size: 24px; /* Adjust font size as needed */
-    color: #333; /* Set text color */
+    font-size: 50px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
     margin-top: 10px; /* Adds space between logo and text */
     text-align: center; /* Centers the text */
 }
@@ -60,21 +62,40 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center; /* Center items horizontally */
-    justify-content: center; /* Center items vertically */
-    height: 100vh;
-    overflow-y: auto;
+    justify-content: flex-start; /* Adjust to top initially for dynamic flow */
+    height: 100%; /* Take up the available space */
+    min-height: 100vh; /* Ensure it fills at least the viewport height */
+    overflow-y: auto; /* Allow scrolling if content overflows */
     box-sizing: border-box;
+    transition: all 0.3s ease-in-out; /* Smooth transition for any dynamic changes */
 }
+
+/* Add responsive behavior for different screen sizes */
+@media (max-width: 768px) {
+    .content {
+        padding: 20px; /* Add more padding on smaller screens */
+        justify-content: flex-start; /* Ensure content starts from top */
+    }
+}
+
+@media (max-width: 480px) {
+    .content {
+        padding: 15px; /* Further adjust padding for smaller devices */
+        justify-content: flex-start; /* Keep content top-aligned */
+    }
+}
+
 /* Webcam Section */
 .webcam-section {
     position: fixed;
     top: 0;
     right: 0;
     width: 45%;
-    height: 93vh;
-    margin-top: 35px;
+    height: 94vh;
+    margin-top: 15px;
     margin-right: 20px;
-    background: linear-gradient(145deg, #fff, #fff); /* Soft gradient for a modern look */
+    background: #fff;
+    /* Soft gradient for a modern look */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -189,7 +210,7 @@ body {
 
 /* Acceptance Rate Display */
 .acceptance-rate-display p {
-    font-size: 38px;
+    font-size: 30px;
     text-align: center;
     font-weight: bold;
     color: #333;
@@ -228,38 +249,40 @@ body {
 .controls {
     display: flex;
     align-items: center;
-    margin-top: 80px;
+    margin-top: 40px;
     /* Added margin-top for spacing */
 }
 
 button {
     padding: 10px 15px;
-    font-size: 18px;
-    margin-left: 20px;
+    font-size: 35px;
+    margin-left: 40px;
     margin-top: 100px;
     cursor: pointer;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     background-color: #fc981e;
     color: white;
-    margin: 0 10px;
+    margin: 10px 10px;
     transition: background-color 0.3s;
 }
 
 button:hover {
     background-color: #fc981e;
+    
 }
 
 .speed-display {
-    font-size: 24px;
+    font-size: 30px;
     margin: 0 20px;
 }
 
 /* Speed Button Label */
 .speed-button-label {
     text-align: center;
-    margin-top: 10px;
-    font-size: 20px;
+    margin-top: 5px;
+   
+    font-size: 22px;
     font-weight: bold;
     color: #333;
 }
@@ -275,12 +298,12 @@ button:hover {
 
 /* Summary Table */
 .summary-table {
-    width: 120%; /* Set to full width */
+    width: 90%; /* Set to full width */
     max-width: none; /* Remove the maximum width restriction */
     text-align: center;
     align-items: center;
     justify-content: center;
-    margin: 10px 0 10px -120px; /* Adjusted to center it properly without shifting */
+    margin: 10px 0 10px -10px; /* Adjusted to center it properly without shifting */
     border-collapse: collapse;
     border-radius: 10px; /* Smaller border radius for the whole table */
     overflow: hidden; /* Prevent content overflow */

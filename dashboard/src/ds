@@ -1,283 +1,450 @@
-return (
-	<div className="app-layout">
-		<Navbar />
-		<div className="content">
-			<div className="dashboard">
-				{/* Logo Section */}
-				<div className="logo-container">
-					<img src={logo} alt="Logo" className="logo" />
-					<h1 className="app-name">Your App Name</h1> {/* Name below the logo */}
-				</div>
-				<Routes>
-					<Route
-						path="/"
-						element={
-							<HomeWithWebcam
-								mode={mode}
-								acceptanceRate={acceptanceRate}
-								cameraLayout={cameraLayout}
-							/>
-						}
-					/>
-					<Route path="/about" element={<About />} />
-					<Route
-						path="/AnalyticsData"
-						element={
-							<AnalyticsData
-								acceptanceRate={acceptanceRate}
-								cameraLayout={cameraLayout}
-							/>
-						}
-					/>
-					<Route path="/contact" element={<Contact />} />
-					<Route
-						path="/settings"
-						element={
-							<Settings
-								setMode={handleModeChange}
-								acceptanceRate={acceptanceRate}
-								setAcceptanceRate={setAcceptanceRate}
-							/>
-						/>
-					</Route>
-				</Routes>
-			</div>
-			<div className={`webcam-section ${cameraLayout}`}>
-				<WebcamCapture mode={mode} cameraLayout={cameraLayout} />
-			</div>
-		</div>
-	</div>
-);
-
-/* Navbar Styles */
-.navbar {
-  padding: 5px 20px;
-  color: #fc981e;
-  position: relative;
+/* General styles */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
 }
 
-.title {
-  font-size: 44px;
-  text-decoration: none;
-  color: #fc981e;
-  font-weight: bold;
-  margin-left: 20px; /* Space next to the title */
-
+/* App layout */
+.app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    flex-direction: row;
+    /* Align content and navbar horizontally */
 }
 
-.menu {
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  margin-top: 50px;
-  gap: 5px;
-  justify-content: center;
-  align-items: center;
-  width: 30px;
-  height: 30px;
-  background-color: transparent;
+.content.horizontal-layout {
+    display: flex;
+    flex-direction: row;
 }
 
-/* Menu selector */
-.menu div {
-  width: 28px;
-  height: 6px;
-  
-  margin-left: 90px;
-  background-color: #fc981e;
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-/* Sidebar */
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: -280px; /* Slightly move sidebar to the right */
-  width: 200px;
-  height: 100%;
-  background: linear-gradient(135deg, #fc981e, #fc981e);
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
-  transition: left 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-  z-index: 9999;
-  padding-top: 60px;
-  overflow: auto;
-
-  border-top-right-radius:30px;
-}
-
-/* When Sidebar is open, slide in and apply shadow */
-.sidebar.open {
-  left: 0;
-  
-  border-radius: 10; /* Remove corner curves when open */
-}
-
-/* Sidebar list styles */
-.sidebar ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar ul li {
-  padding: 15px 20px;
-  margin: 10px 0;
-  
-  border-radius: 8px; /* Rounded corners for each menu item */
-  transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
-}
-
-/* Hover effect for sidebar items */
-.sidebar ul li:hover {
-  background-color: #ffcb6b;
-  transform: scale(1.05);
-  box-shadow: 0px 0px 10px #ffcb6b; /* Glow effect on hover */
-}
-
-/* Sidebar item links */
-.sidebar ul li a {
-  text-decoration: none;
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px; /* Space for icon and text */
-}
-
-/* Hover effect for links */
-.sidebar ul li a:hover {
-  text-shadow: 0px 0px 10px rgba(255, 255, 255, 0.8); /* Glow on text hover */
-}
-
-/* Icons for list items */
-.sidebar ul li a .icon {
-  font-size: 20px;
-}
-
-/* Close Button for Sidebar */
-.sidebar .close-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  font-size: 20px;
-  color: white;
-  cursor: pointer;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 5px;
-  border-radius: 50%; /* Circular button */
-  transition: background 0.3s ease-in-out;
-}
-
-.sidebar .close-btn:hover {
-  background: rgba(0, 0, 0, 0.5);
-}
-
-/* Active and hover effect only on Navbar button items */
-.navbar .menu:hover div {
-  background-color: #ffcb6b; /* Highlight background color */
-  box-shadow: 0px 0px 8px rgba(255, 203, 107, 0.8); /* Glow effect */
-}
-
-/* When sidebar is open, change color of active menu item */
-.sidebar.open .menu div {
-  background-color: #ffcb6b; /* Highlight color */
+/* Layout for smaller screens */
+.content.vertical-layout {
+    display: flex;
+    flex-direction: column;
 }
 
 
 
-import React, { useEffect, useRef, useState } from 'react';
-import Webcam from 'react-webcam';
 
-const WebcamCapture = ({ mode, cameraLayout }) => {
-	const [videoDeviceIds, setVideoDeviceIds] = useState([]); // Store video device IDs
-	const [permissionsGranted, setPermissionsGranted] = useState(false); // Track permissions
-	const webcamRef1 = useRef(null);
-	const webcamRef2 = useRef(null);
+/* Logo Container */
+.logo-container {
+    padding: 10px 10px;
+    display: flex;
+    flex-direction: column; /* Stack children vertically */
+    justify-content: center; /* Center vertically */
+    align-items: center; /* Center horizontally */
+    margin-bottom: 10px; /* Adds space below the logo */
+}
 
-	const isDemoMode = mode === 'demo'; // Check if in demo mode (only one camera)
+/* Logo Image */
+.logo {
+    max-width: 600px; /* Adjust as needed */
+    height: auto;
+}
 
-	useEffect(() => {
-		if (!isDemoMode) {
-			const getVideoDevices = async () => {
-				const devices = await navigator.mediaDevices.enumerateDevices();
-				const videoInputs = devices.filter(device => device.kind === 'videoinput');
+/* Logo Text */
+.linen {
+    font-size: 24px; /* Adjust font size as needed */
+    color: #333; /* Set text color */
+    margin-top: 10px; /* Adds space between logo and text */
+    text-align: center; /* Centers the text */
+}
+/* Main Content Section */
+.content {
+    padding: 10px;
+    background-color: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center items horizontally */
+    justify-content: center; /* Center items vertically */
+    height: 100vh;
+    overflow-y:hidden;
+    box-sizing: border-box;
+}
+/* Webcam Section */
+.webcam-section {
+    position: fixed;
+    top: 1;
+    right: 0;
+    width: 45%;
+    height: 93vh;
+    margin-top: 35px;
+    margin-right: 20px;
+    background: linear-gradient(145deg, #fff, #fff); /* Soft gradient for a modern look */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+    border-radius: 10px; /* Slightly more subtle rounded corners */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Deeper shadow for more depth */
+    transition: all 0.3s ease-in-out; /* Smooth transition */
+    overflow: hidden; /* Prevent content overflow */
+}
 
-				if (videoInputs.length > 0) {
-					const constraints = videoInputs.map(device => ({
-						deviceId: { exact: device.deviceId },
-					}));
+/* Webcam Section Hover Effect */
+.webcam-section:hover {
+    transform: scale(1.02); /* Subtle zoom effect on hover */
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3); /* Slightly stronger shadow on hover */
+}
 
-					// Request access to both cameras
-					try {
-						await Promise.all(constraints.map(constraint => navigator.mediaDevices.getUserMedia({ video: constraint })));
-						setVideoDeviceIds(videoInputs.map(device => device.deviceId)); // Set IDs for both cameras
-						setPermissionsGranted(true); // Set permissions granted
-					} catch (error) {
-						console.error('Error accessing cameras:', error);
-					}
-				}
-			};
+/* Adjusting Webcam Container */
+.webcam-container {
+    display: flex;
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center;
+    justify-content: center;
+    gap: 20px; /* Increased space between items for better visual balance */
+    max-width: 100%;
+    width: 100%; /* Full width for responsiveness */
+    text-align: center; /* Center text for labels */
+}
 
-			getVideoDevices();
-		}
-	}, [isDemoMode]);
+/* Camera Label (left and right camera names) */
+.webcam-container h3 {
+    font-size: 1.4rem; /* Increased font size for better readability */
+    font-weight: 600; /* Lighter weight for a modern, clean look */
+    color: #4a4a4a; /* Darker shade for text */
+    margin-bottom: 12px; /* More spacing between label and webcam feed */
+    text-transform: uppercase; /* Capitalized for a bold, structured feel */
+    letter-spacing: 1px; /* Increased letter spacing for added elegance */
+}
 
-	const videoSrc = 'http://localhost:8000/video_feed'; // Video feed from FastAPI
+/* Add a subtle border around the webcam container */
+.webcam-container {
+    border: 1px solid rgba(0, 0, 0, 0.1); /* Soft border for better definition */
+    border-radius: 40px; /* Slight curve for a softer look */
+    padding: 20px; /* Increased padding for comfort */
+    background-color: #fff; /* Clean white background */
+}
 
-	return (
-		<div style={{ display: cameraLayout === 'vertical' ? 'block' : 'flex' }}>
-			{isDemoMode ? (
-				// In demo mode, show video feed from backend
-				<div style={{ width: '100%', margin: '5px' }}>
-					<img
-						src={videoSrc}
-						alt="Video Stream"
-						style={{ width: '100%', height: '400px', objectFit: 'cover' }}
-						onError={(e) => {
-							e.target.onerror = null;
-							e.target.src = '';
-							console.error('Failed to load video feed from backend.');
-						}}
-					/>
-				</div>
-			) : (
-				permissionsGranted && videoDeviceIds.length > 0 ? (
-					<>
-						{/* First camera (always visible) */}
-						<div style={{ width: cameraLayout === 'vertical' ? '100%' : '78%', margin: '5px' }}>
-						<h3>Left Camera</h3> {/* Left Camera Name */}
-							<Webcam
-								audio={false}
-								ref={webcamRef1}
-								screenshotFormat="image/jpeg"
-								videoConstraints={{ deviceId: { exact: videoDeviceIds[0] } }}
-								style={{ width: '100%', height: '400px' }} // Adjusted to moderate height
-							/>
-						</div>
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .webcam-section {
+        width: 70%; /* Adjust width for smaller screens */
+        margin-top: 20px; /* Reduce top margin on smaller screens */
+    }
+    
+    .webcam-container h3 {
+        font-size: 1.2rem; /* Slightly smaller font for mobile */
+    }
+}
 
-						{/* Second camera */}
-						{videoDeviceIds[1] && (
-							<div style={{ width: cameraLayout === 'vertical' ? '100%' : '78%', margin: '5px' }}>
-								<h3>Right Camera</h3> {/* Right Camera Name */}
-								<Webcam
-									audio={false}
-									ref={webcamRef2}
-									screenshotFormat="image/jpeg"
-									videoConstraints={{ deviceId: { exact: videoDeviceIds[1] } }}
-									style={{ width: '100%', height: '400px' }} // Adjusted to moderate height
-								/>
-							</div>
-						)}
-					</>
-				) : (
-					<p>Loading cameras...</p>
-				)
-			)}
-		</div>
-	);
-};
 
-export default WebcamCapture;
+/* Responsive Webcam Section */
+@media (max-width: 768px) {
+    .webcam-section {
+        width: 80%; /* Adjust width on smaller screens */
+    }
 
+    .webcam-container {
+        flex-direction: column; /* Stack webcams vertically on smaller screens */
+    }
+}
+/* Webcam Container Video Styling */
+.webcam-container video {
+    border-radius: 15px; /* Rounded corners for videos */
+    border: 3px solid #fc981e; /* Clear orange border for contrast */
+    background-color: #000; /* Ensure background is black to enhance border visibility */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow for videos */
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out; /* Smooth hover effect */
+}
+
+/* Hover Effect for Webcam Videos */
+.webcam-container video:hover {
+    transform: scale(1.05); /* Slight zoom effect on hover */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Stronger shadow on hover */
+}
+
+
+/* Dashboard Content */
+.dashboard {
+    background-color: #ffffff;
+    height: 100vh;
+    width: 43vw;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #333;
+    box-sizing: border-box;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px #333(0, 0, 0, 0.1); /* Shadow for depth */
+    transition: all 0.3s ease;
+}
+/* Main heading */
+.main-heading {
+    font-size: 40px;
+    margin-bottom: 10px;
+    color: #fc981e;
+    text-align: center;
+    width: 100%;
+}
+
+/* Acceptance Rate Display */
+.acceptance-rate-display p {
+    font-size: 38px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 50px; /* Added margin-top for spacing */
+}
+
+@media (max-width: 768px) {
+    .acceptance-rate-display p {
+        font-size: 22px;
+    }
+}
+
+.acceptance-rate-value{
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 50px; /* Added margin-top for spacing */
+}
+.analytics-data{
+    margin: 10px 0;
+    text-align: center;
+}
+
+.contact-container{
+    margin: 10px 0;
+    text-align: center;
+}
+
+.about-container{
+    margin: 10px 0;
+    text-align: center;
+}
+
+/* Controls styling */
+.controls {
+    display: flex;
+    align-items: center;
+    margin-top: 70px;
+    /* Added margin-top for spacing */
+}
+
+button {
+    padding: 10px 15px;
+    font-size: 18px;
+    margin-left: 20px;
+    margin-top: 100px;
+    cursor: pointer;
+    border: none;
+    border-radius: 12px;
+    background-color: #fc981e;
+    color: white;
+    margin: 0 10px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #fc981e;
+}
+
+.speed-display {
+    font-size: 24px;
+    margin: 0 20px;
+}
+
+/* Speed Button Label */
+.speed-button-label {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Current Time Styling */
+.current-time {
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 0px; /* Added margin-top for spacing */
+}
+
+/* Summary Table */
+.summary-table {
+    width: 90%; /* Set to full width */
+    max-width: none; /* Remove the maximum width restriction */
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 10px -10px; /* Adjusted to center it properly without shifting */
+    border-collapse: collapse;
+    border-radius: 10px; /* Smaller border radius for the whole table */
+    overflow: hidden; /* Prevent content overflow */
+    background-color: #ffffff; /* Light background for the table */
+}
+
+.summary-table th,
+.summary-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    font-size: 28px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* Header Style */
+.summary-table th {
+    background-color: #fc981e;
+    color: white;
+}
+
+/* Bottom Row Design */
+.summary-table tr:last-child td {
+    background: linear-gradient(135deg, #fff, #fff); /* Soft gradient for bottom row */
+    color: #333; /* Dark text for contrast */
+    border-bottom-left-radius: 15px; /* Rounded bottom-left corner */
+    border-bottom-right-radius: 15px; /* Rounded bottom-right corner */
+    box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1); /* Light inner shadow for depth */
+    font-weight: normal; /* Lighter weight for the bottom row for contrast */
+}
+
+/* Optional: Apply rounded corners to the first and last row */
+.summary-table tr:first-child th {
+    border-top-left-radius: 10px; /* Rounded top-left corner */
+    border-top-right-radius: 10px; /* Rounded top-right corner */
+}
+
+/* Hover Effect for Bottom Row */
+.summary-table tr:last-child td:hover {
+    transform: translateY(-2px); /* Slight hover lift */
+    box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.15); /* Stronger shadow on hover */
+    background: linear-gradient(135deg, #fff, #fff); /* Darker gradient on hover */
+}
+
+/* Optional: Apply rounded corners to each individual cell */
+.summary-table th,
+.summary-table td {
+    border-radius: 5px; /* Rounded corners for each cell */
+}
+
+/* Settings Page Styles */
+.settings-container {
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.settings-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+.settings-option {
+    margin: 10px 0;
+    width: 100%;
+    text-align: center;
+}
+
+.save-button{
+    margin: 10px 0;
+    text-align: center;
+}
+
+.acceptance-rate{
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 50px; /* Added margin-top for spacing */
+}
+
+/* Modal Styles for Layout */
+.layout-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.layout-modal .modal-content table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.layout-modal .modal-content th,
+.layout-modal .modal-content td {
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+
+.layout-modal .modal-content th {
+    background-color: #fc981e;
+    color: white;
+}
+
+/* Modal Buttons Styling */
+.layout-modal .modal-content button {
+    width: 100%;
+    margin: 5px 0;
+    padding: 10px;
+    background-color: #fc981e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.layout-modal .modal-content button:hover {
+    background-color: #fc981e;
+}
+
+/* Calendar Styles */
+.calendar-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+input[type="date"] {
+    padding: 10px;
+    font-size: 16px;
+    margin-right: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 200px;
+}
+
+input[type="date"]:focus {
+    outline: none;
+    border-color: #fc981e;
+}
