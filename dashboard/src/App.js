@@ -17,26 +17,12 @@ const App = () => {
 	const [mode, setMode] = useState('production'); // Default to demo mode
 	const [acceptanceRate, setAcceptanceRate] = useState(95); // Default acceptance rate
 	const [showLayoutModal, setShowLayoutModal] = useState(false);
-	const [screenResolution, setScreenResolution] = useState({
-		width: window.innerWidth,
-		height: window.innerHeight,
-	});
-
-	// Handle screen resolution changes
-	useEffect(() => {
-		const handleResize = () => {
-			setScreenResolution({
-				width: window.innerWidth,
-				height: window.innerHeight,
-			});
-		};
-
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
-
-	// Adjust camera layout based on screen width
 	
+
+	
+	
+	
+
 
 	// Handle mode change (demo or production)
 	const handleModeChange = (newMode) => {
@@ -59,19 +45,19 @@ const App = () => {
 				<div className="dashboard">
 					{/* Logo Section */}
 					<div className="logo-container">
-    <img src={logo} alt="Logo" className="logo" />
-    <h1 className="Linen">
-        <span className="highlight-first-letter">L</span>inen
-        <span className="word-gap"> </span>
-        <span className="highlight-first-letter">I</span>nspection
-        <span className="word-gap"> </span>
-        &
-        <span className="word-gap"> </span>
-        <span className="highlight-first-letter">S</span>orting
-        <span className="word-gap"> </span>
-        <span className="highlight-first-letter">A</span>ssistant
-    </h1>
-</div>
+						<img src={logo} alt="Logo" className="logo" />
+						<h1 className="Linen">
+							<span className="highlight-first-letter">L</span>inen
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">I</span>nspection
+							<span className="word-gap"> </span>
+							&
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">S</span>orting
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">A</span>ssistant
+						</h1>
+					</div>
 
 
 
@@ -112,7 +98,7 @@ const App = () => {
 				<div className={`webcam-section ${cameraLayout}`}>
 					<WebcamCapture mode={mode} cameraLayout={cameraLayout} />
 				</div>
-	
+
 				{showLayoutModal && (
 					<div className="layout-modal">
 						<div className="modal-content">
@@ -156,7 +142,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				const data = JSON.parse(event.data);
 				setCountDataLeft(data);
 			};
-        
+
 			wsLeft.onerror = (error) => {
 				console.error('WebSocket error (left):', error);
 			};
@@ -227,12 +213,12 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 
 	return (
 		<div className="dashboard">
-			 <div className="acceptance-rate-display">
+			<div className="acceptance-rate-display">
 				<p>Acceptance Rate: {acceptanceRate}%</p>
 				<div className="line"></div>
 			</div>
-           
-        
+
+
 
 			<div className="current-time">
 				<p>
@@ -263,7 +249,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 									</tr>
 								</thead>
 								<tbody>
-									
+
 									<tr>
 										<td>{countDataLeft.total_accepted}</td>
 										<td>{countDataLeft.total_rejected}</td>
@@ -316,4 +302,3 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 };
 
 export default App;
- 

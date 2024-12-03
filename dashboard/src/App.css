@@ -34,15 +34,20 @@ body {
 .logo-container {
     padding: 10px 10px;
     display: flex;
-    flex-direction: column; /* Stack children vertically */
-    justify-content: center; /* Center vertically */
-    align-items: center; /* Center horizontally */
-    margin-bottom: 10px; /* Adds space below the logo */
+    flex-direction: column;
+    /* Stack children vertically */
+    justify-content: center;
+    /* Center vertically */
+    align-items: center;
+    /* Center horizontally */
+    margin-bottom: 10px;
+    /* Adds space below the logo */
 }
 
 /* Logo Image */
 .logo {
-    max-width: 480px; /* Adjust as needed */
+    max-width: 480px;
+    /* Adjust as needed */
     height: auto;
 }
 
@@ -52,38 +57,52 @@ body {
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 10px; /* Adds space between logo and text */
-    text-align: center; /* Centers the text */
+    margin-top: 10px;
+    /* Adds space between logo and text */
+    text-align: center;
+    /* Centers the text */
 }
+
 /* Main Content Section */
 .content {
     padding: 10px;
     background-color: #f5f5f5;
     display: flex;
     flex-direction: column;
-    
-    align-items: center; /* Center items horizontally */
-    justify-content: left; /* Adjust to top initially for dynamic flow */
-    height: 98%; /* Adjust height to 80% of the available space */
-    min-height: 80vh; /* Ensure it fills at least 80% of the viewport height */
-    overflow-y: hidden; /* Allow scrolling if content overflows */
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+
+    align-items: center;
+    /* Center items horizontally */
+    justify-content: left;
+    /* Adjust to top initially for dynamic flow */
+    height: 98%;
+    /* Adjust height to 80% of the available space */
+    min-height: 80vh;
+    /* Ensure it fills at least 80% of the viewport height */
+    overflow-y: hidden;
+    /* Allow scrolling if content overflows */
+    overflow-x: hidden;
+    /* Prevent horizontal scrolling */
     box-sizing: content-box;
-    transition: all 0.3s ease-in-out; /* Smooth transition for any dynamic changes */
+    transition: all 0.3s ease-in-out;
+    /* Smooth transition for any dynamic changes */
 }
 
 /* Add responsive behavior for different screen sizes */
 @media (max-width: 768px) {
     .content {
-        padding: 20px; /* Add more padding on smaller screens */
-        justify-content: flex-start; /* Ensure content starts from top */
+        padding: 20px;
+        /* Add more padding on smaller screens */
+        justify-content: flex-start;
+        /* Ensure content starts from top */
     }
 }
 
 @media (max-width: 480px) {
     .content {
-        padding: 15px; /* Further adjust padding for smaller devices */
-        justify-content: flex-start; /* Keep content top-aligned */
+        padding: 15px;
+        /* Further adjust padding for smaller devices */
+        justify-content: flex-start;
+        /* Keep content top-aligned */
     }
 }
 
@@ -104,57 +123,80 @@ body {
     justify-content: center;
     padding: 20px;
     z-index: 10;
-    border-radius: 10px; /* Slightly more subtle rounded corners */
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Deeper shadow for more depth */
-    transition: all 0.3s ease-in-out; /* Smooth transition */
-    overflow: hidden; /* Prevent content overflow */
+    border-radius: 10px;
+    /* Slightly more subtle rounded corners */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    /* Deeper shadow for more depth */
+    transition: all 0.3s ease-in-out;
+    /* Smooth transition */
+    overflow: hidden;
+    /* Prevent content overflow */
 }
 
 /* Webcam Section Hover Effect */
 .webcam-section:hover {
-    transform: scale(1.02); /* Subtle zoom effect on hover */
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3); /* Slightly stronger shadow on hover */
+    transform: scale(1.02);
+    /* Subtle zoom effect on hover */
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    /* Slightly stronger shadow on hover */
 }
 
 /* Adjusting Webcam Container */
 .webcam-container {
     display: flex;
-    flex-direction: column; /* Stack elements vertically */
+    flex-direction: column;
+    /* Stack elements vertically */
     align-items: center;
     justify-content: center;
-    gap: 20px; /* Increased space between items for better visual balance */
+    gap: 20px;
+    /* Increased space between items for better visual balance */
     max-width: 100%;
-    width: 100%; /* Full width for responsiveness */
-    text-align: center; /* Center text for labels */
+    width: 100%;
+    /* Full width for responsiveness */
+    text-align: center;
+    /* Center text for labels */
 }
 
 /* Camera Label (left and right camera names) */
 .webcam-container h3 {
-    font-size: 2.4rem; /* Increased font size for better readability */
-    font-weight: 600; /* Lighter weight for a modern, clean look */
-    color: #4a4a4a; /* Darker shade for text */
-    margin-bottom: 12px; /* More spacing between label and webcam feed */
-    text-transform: uppercase; /* Capitalized for a bold, structured feel */
-    letter-spacing: 1px; /* Increased letter spacing for added elegance */
+    font-size: 2.4rem;
+    /* Increased font size for better readability */
+    font-weight: 600;
+    /* Lighter weight for a modern, clean look */
+    color: #4a4a4a;
+    /* Darker shade for text */
+    margin-bottom: 12px;
+    /* More spacing between label and webcam feed */
+    text-transform: uppercase;
+    /* Capitalized for a bold, structured feel */
+    letter-spacing: 1px;
+    /* Increased letter spacing for added elegance */
 }
 
 /* Add a subtle border around the webcam container */
 .webcam-container {
-    border: 1px solid rgba(0, 0, 0, 0.1); /* Soft border for better definition */
-    border-radius: 40px; /* Slight curve for a softer look */
-    padding: 20px; /* Increased padding for comfort */
-    background-color: #fff; /* Clean white background */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    /* Soft border for better definition */
+    border-radius: 40px;
+    /* Slight curve for a softer look */
+    padding: 20px;
+    /* Increased padding for comfort */
+    background-color: #fff;
+    /* Clean white background */
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .webcam-section {
-        width: 70%; /* Adjust width for smaller screens */
-        margin-top: 20px; /* Reduce top margin on smaller screens */
+        width: 70%;
+        /* Adjust width for smaller screens */
+        margin-top: 20px;
+        /* Reduce top margin on smaller screens */
     }
-    
+
     .webcam-container h3 {
-        font-size: 1.2rem; /* Slightly smaller font for mobile */
+        font-size: 1.2rem;
+        /* Slightly smaller font for mobile */
     }
 }
 
@@ -162,26 +204,36 @@ body {
 /* Responsive Webcam Section */
 @media (max-width: 768px) {
     .webcam-section {
-        width: 80%; /* Adjust width on smaller screens */
+        width: 80%;
+        /* Adjust width on smaller screens */
     }
 
     .webcam-container {
-        flex-direction: column; /* Stack webcams vertically on smaller screens */
+        flex-direction: column;
+        /* Stack webcams vertically on smaller screens */
     }
 }
+
 /* Webcam Container Video Styling */
 .webcam-container video {
-    border-radius: 15px; /* Rounded corners for videos */
-    border: 3px solid #fc981e; /* Clear orange border for contrast */
-    background-color: #000; /* Ensure background is black to enhance border visibility */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow for videos */
-    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out; /* Smooth hover effect */
+    border-radius: 15px;
+    /* Rounded corners for videos */
+    border: 3px solid #fc981e;
+    /* Clear orange border for contrast */
+    background-color: #000;
+    /* Ensure background is black to enhance border visibility */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* Soft shadow for videos */
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+    /* Smooth hover effect */
 }
 
 /* Hover Effect for Webcam Videos */
 .webcam-container video:hover {
-    transform: scale(1.05); /* Slight zoom effect on hover */
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Stronger shadow on hover */
+    transform: scale(1.05);
+    /* Slight zoom effect on hover */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    /* Stronger shadow on hover */
 }
 
 
@@ -191,7 +243,8 @@ body {
     height: 101vh;
     width: 40vw;
     overflow-y: hidden;
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-x: hidden;
+    /* Prevent horizontal scrolling */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -199,9 +252,11 @@ body {
     box-sizing: border-box;
     padding: 20px;
     border-radius: 20px;
-    box-shadow: 0 4px 10px #333(0, 0, 0, 0.1); /* Shadow for depth */
+    box-shadow: 0 4px 10px #333(0, 0, 0, 0.1);
+    /* Shadow for depth */
     transition: all 0.3s ease;
 }
+
 /* Main heading */
 .main-heading {
     font-size: 40px;
@@ -217,7 +272,8 @@ body {
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 50px; /* Added margin-top for spacing */
+    margin-top: 50px;
+    /* Added margin-top for spacing */
 }
 
 @media (max-width: 768px) {
@@ -226,29 +282,33 @@ body {
     }
 }
 
-.acceptance-rate-value{
+.acceptance-rate-value {
     font-size: 28px;
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 50px; /* Added margin-top for spacing */
+    margin-top: 50px;
+    /* Added margin-top for spacing */
 }
-.analytics-data{
+
+.analytics-data {
     margin: 10px 0;
     text-align: center;
 }
 
-.contact-container{
+.contact-container {
     margin: 10px 0;
     text-align: center;
 }
+
 /* Container and Header Styles */
 .about-container {
     padding: 40px 20px;
     font-family: 'Roboto', sans-serif;
     /* Removed background color and gradient */
     border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow for depth */
     margin-top: 0px;
 }
 
@@ -272,7 +332,8 @@ body {
 }
 
 /* Company Info and Features Section */
-.company-info, .lisa-features {
+.company-info,
+.lisa-features {
     margin: 40px 0;
 }
 
@@ -280,10 +341,11 @@ body {
     font-size: 32px;
     color: #fc981e;
     text-align: center;
-    
+
     margin-bottom: 5px;
     font-weight: bold;
-    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); /* Soft shadow for text */
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    /* Soft shadow for text */
 }
 
 .company-text {
@@ -296,19 +358,23 @@ body {
 }
 
 .company-text:hover {
-    transform: scale(1.02); /* Subtle zoom effect for hover */
-    color: #fc981e; /* Change text color on hover */
+    transform: scale(1.02);
+    /* Subtle zoom effect for hover */
+    color: #fc981e;
+    /* Change text color on hover */
 }
 
 /* List Styles */
-.features-list, .values-list {
+.features-list,
+.values-list {
     list-style-type: none;
     padding-left: 0;
     margin-left: 0;
     text-align: left;
 }
 
-.features-list li, .values-list li {
+.features-list li,
+.values-list li {
     font-size: 18px;
     color: #333;
     margin: 15px 0;
@@ -317,8 +383,10 @@ body {
     padding-left: 25px;
 }
 
-.features-list li:before, .values-list li:before {
-    content: '✔'; /* Add a checkmark icon before each item */
+.features-list li:before,
+.values-list li:before {
+    content: '✔';
+    /* Add a checkmark icon before each item */
     position: absolute;
     left: 0;
     color: #fc981e;
@@ -332,7 +400,8 @@ body {
     color: #fc981e;
 }
 
-.features-list li:hover, .values-list li:hover {
+.features-list li:hover,
+.values-list li:hover {
     color: #fc981e;
     cursor: pointer;
     transition: color 0.3s ease;
@@ -356,7 +425,8 @@ body {
         font-size: 24px;
     }
 
-    .features-list li, .values-list li {
+    .features-list li,
+    .values-list li {
         font-size: 16px;
     }
 }
@@ -386,7 +456,7 @@ button {
 
 button:hover {
     background-color: #fc981e;
-    
+
 }
 
 .speed-display {
@@ -398,7 +468,7 @@ button:hover {
 .speed-button-label {
     text-align: center;
     margin-top: 5px;
-   
+
     font-size: 22px;
     font-weight: bold;
     color: #333;
@@ -410,21 +480,28 @@ button:hover {
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 0px; /* Added margin-top for spacing */
+    margin-top: 0px;
+    /* Added margin-top for spacing */
 }
 
 /* Summary Table */
 .summary-table {
-    width: 80%; /* Set to full width */
-    max-width: none; /* Remove the maximum width restriction */
+    width: 80%;
+    /* Set to full width */
+    max-width: none;
+    /* Remove the maximum width restriction */
     text-align: center;
     align-items: center;
     justify-content: center;
-    margin: 10px 0 10px -10px; /* Adjusted to center it properly without shifting */
+    margin: 10px 0 10px -10px;
+    /* Adjusted to center it properly without shifting */
     border-collapse: collapse;
-    border-radius: 10px; /* Smaller border radius for the whole table */
-    overflow: hidden; /* Prevent content overflow */
-    background-color: #ffffff; /* Light background for the table */
+    border-radius: 10px;
+    /* Smaller border radius for the whole table */
+    overflow: hidden;
+    /* Prevent content overflow */
+    background-color: #ffffff;
+    /* Light background for the table */
 }
 
 .summary-table th,
@@ -446,31 +523,43 @@ button:hover {
 
 /* Bottom Row Design */
 .summary-table tr:last-child td {
-    background: linear-gradient(135deg, #fff, #fff); /* Soft gradient for bottom row */
-    color: #333; /* Dark text for contrast */
-    border-bottom-left-radius: 15px; /* Rounded bottom-left corner */
-    border-bottom-right-radius: 15px; /* Rounded bottom-right corner */
-    box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1); /* Light inner shadow for depth */
-    font-weight: normal; /* Lighter weight for the bottom row for contrast */
+    background: linear-gradient(135deg, #fff, #fff);
+    /* Soft gradient for bottom row */
+    color: #333;
+    /* Dark text for contrast */
+    border-bottom-left-radius: 15px;
+    /* Rounded bottom-left corner */
+    border-bottom-right-radius: 15px;
+    /* Rounded bottom-right corner */
+    box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* Light inner shadow for depth */
+    font-weight: normal;
+    /* Lighter weight for the bottom row for contrast */
 }
 
 /* Optional: Apply rounded corners to the first and last row */
 .summary-table tr:first-child th {
-    border-top-left-radius: 10px; /* Rounded top-left corner */
-    border-top-right-radius: 10px; /* Rounded top-right corner */
+    border-top-left-radius: 10px;
+    /* Rounded top-left corner */
+    border-top-right-radius: 10px;
+    /* Rounded top-right corner */
 }
 
 /* Hover Effect for Bottom Row */
 .summary-table tr:last-child td:hover {
-    transform: translateY(-2px); /* Slight hover lift */
-    box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.15); /* Stronger shadow on hover */
-    background: linear-gradient(135deg, #fff, #fff); /* Darker gradient on hover */
+    transform: translateY(-2px);
+    /* Slight hover lift */
+    box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.15);
+    /* Stronger shadow on hover */
+    background: linear-gradient(135deg, #fff, #fff);
+    /* Darker gradient on hover */
 }
 
 /* Optional: Apply rounded corners to each individual cell */
 .summary-table th,
 .summary-table td {
-    border-radius: 5px; /* Rounded corners for each cell */
+    border-radius: 5px;
+    /* Rounded corners for each cell */
 }
 
 /* Settings Page Styles */
@@ -494,17 +583,18 @@ button:hover {
     text-align: center;
 }
 
-.save-button{
+.save-button {
     margin: 10px 0;
     text-align: center;
 }
 
-.acceptance-rate{
+.acceptance-rate {
     font-size: 28px;
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 50px; /* Added margin-top for spacing */
+    margin-top: 50px;
+    /* Added margin-top for spacing */
 }
 
 /* Modal Styles for Layout */
@@ -591,27 +681,35 @@ input[type="date"]:focus {
 
 /* Font size for Left Camera Counts */
 .tables-container .table-wrapper:nth-child(1) h3 {
-    font-size: 23px;  /* You can adjust the font size as needed */
-    color: #333; /* Optional: add a color for better readability */
+    font-size: 23px;
+    /* You can adjust the font size as needed */
+    color: #333;
+    /* Optional: add a color for better readability */
 }
 
 /* Font size for Right Camera Counts */
 .tables-container .table-wrapper:nth-child(2) h3 {
-    font-size: 23px;  /* You can adjust the font size as needed */
-    color: #333; /* Optional: add a color for better readability */
+    font-size: 23px;
+    /* You can adjust the font size as needed */
+    color: #333;
+    /* Optional: add a color for better readability */
 }
+
 .Linen {
-    display: inline;  /* Keeps the words inline */
+    display: inline;
+    /* Keeps the words inline */
     font-size: 25px;
 }
 
 .highlight-first-letter {
-    color: #fc981e;  /* Apply color to the first letter */
-    font-size:34px ;
-    font-weight: bold;  /* Optional: make it bold */
+    color: #fc981e;
+    /* Apply color to the first letter */
+    font-size: 34px;
+    font-weight: bold;
+    /* Optional: make it bold */
 }
 
 .word-gap {
-    margin-right: 8px; /* Adds space between the words */
+    margin-right: 8px;
+    /* Adds space between the words */
 }
-
