@@ -21,9 +21,9 @@ const About = () => {
           <li>Robust stain and damage detection algorithm.</li>
           <li>Smart AI-based decision making.</li>
           <li>Quick, responsive, and intuitive dashboard for real-time data visualization and monitoring.</li>
-          <li>User-configurable system speed ranging from 1 - 50 meters per minute.</li>
-          <li>Automated decision-making and rejection mechanism (optional) for acceptance or rejection.</li>
-          <li>Backlight and High-Res camera for two-pass scan.</li>
+          
+          <li>Automated decision-making and rejection mechanism for acceptance or rejection.</li>
+         
         </ul>
       </div>
 

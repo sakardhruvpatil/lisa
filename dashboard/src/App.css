@@ -42,13 +42,13 @@ body {
 
 /* Logo Image */
 .logo {
-    max-width: 600px; /* Adjust as needed */
+    max-width: 480px; /* Adjust as needed */
     height: auto;
 }
 
 /* Logo Text */
 .linen {
-    font-size: 55px;
+    font-size: 10px;
     text-align: center;
     font-weight: bold;
     color: #333;
@@ -61,12 +61,14 @@ body {
     background-color: #f5f5f5;
     display: flex;
     flex-direction: column;
+    
     align-items: center; /* Center items horizontally */
-    justify-content: flex-start; /* Adjust to top initially for dynamic flow */
-    height: 100%; /* Take up the available space */
-    min-height: 100vh; /* Ensure it fills at least the viewport height */
-    overflow-y: auto; /* Allow scrolling if content overflows */
-    box-sizing: border-box;
+    justify-content: left; /* Adjust to top initially for dynamic flow */
+    height: 98%; /* Adjust height to 80% of the available space */
+    min-height: 80vh; /* Ensure it fills at least 80% of the viewport height */
+    overflow-y: hidden; /* Allow scrolling if content overflows */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    box-sizing: content-box;
     transition: all 0.3s ease-in-out; /* Smooth transition for any dynamic changes */
 }
 
@@ -186,9 +188,10 @@ body {
 /* Dashboard Content */
 .dashboard {
     background-color: #ffffff;
-    height: 100vh;
-    width: 43vw;
+    height: 101vh;
+    width: 40vw;
     overflow-y: hidden;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -246,11 +249,11 @@ body {
     /* Removed background color and gradient */
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-    margin-top: 50px;
+    margin-top: 0px;
 }
 
 .about-heading {
-    font-size: 42px;
+    font-size: 22px;
     color: #333;
     margin-bottom: 20px;
     text-align: center;
@@ -260,7 +263,7 @@ body {
 }
 
 .about-description {
-    font-size: 18px;
+    font-size: 15px;
     color: #555;
     line-height: 1.8;
     text-align: center;
@@ -274,16 +277,17 @@ body {
 }
 
 .section-heading {
-    font-size: 36px;
+    font-size: 32px;
     color: #fc981e;
     text-align: center;
-    margin-bottom: 25px;
+    
+    margin-bottom: 5px;
     font-weight: bold;
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); /* Soft shadow for text */
 }
 
 .company-text {
-    font-size: 20px;
+    font-size: 18px;
     color: #333;
     line-height: 1.8;
     margin-bottom: 20px;
@@ -305,7 +309,7 @@ body {
 }
 
 .features-list li, .values-list li {
-    font-size: 20px;
+    font-size: 18px;
     color: #333;
     margin: 15px 0;
     line-height: 1.6;
@@ -411,7 +415,7 @@ button:hover {
 
 /* Summary Table */
 .summary-table {
-    width: 90%; /* Set to full width */
+    width: 80%; /* Set to full width */
     max-width: none; /* Remove the maximum width restriction */
     text-align: center;
     align-items: center;
@@ -427,7 +431,7 @@ button:hover {
 .summary-table td {
     border: 1px solid #ddd;
     padding: 12px;
-    font-size: 28px;
+    font-size: 25px;
     text-align: center;
     align-items: center;
     justify-content: center;
@@ -598,11 +602,12 @@ input[type="date"]:focus {
 }
 .Linen {
     display: inline;  /* Keeps the words inline */
+    font-size: 25px;
 }
 
 .highlight-first-letter {
     color: #fc981e;  /* Apply color to the first letter */
-    font-size:50px ;
+    font-size:34px ;
     font-weight: bold;  /* Optional: make it bold */
 }
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs'); // Import fs module to write to log file
+const fs = require('fs');
 const app = express();
 const PORT = 5007;
 
@@ -9,14 +9,36 @@ app.use(express.json());
 
 let currentSpeed = 0; // Initial speed
 
+// Function to read the current speed from log file
+const readCurrentSpeed = () => {
+    fs.readFile('log.txt', 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading log file:', err);
+        } else {
+            // Read the last line of the log file
+            const lines = data.trim().split('\n');
+            const lastLine = lines[lines.length - 1];
+            const speedMatch = lastLine.match(/Current Speed: (\d+)/);
+            if (speedMatch) {
+                currentSpeed = parseInt(speedMatch[1], 10);
+            }
+        }
+    });
+};
+
+// Read the current speed when the server starts
+readCurrentSpeed();
+
 app.post('/change-speed', (req, res) => {
     const { action } = req.body;
 
     // Update the current speed based on action
     if (action === 'increase') {
-        currentSpeed += 10; // Increase speed
+        // Ensure speed does not exceed 100
+        currentSpeed = Math.min(100, currentSpeed + 10);
     } else if (action === 'decrease') {
-        currentSpeed = Math.max(0, currentSpeed - 10); // Decrease speed, but not below 0
+        // Decrease speed, but not below 0
+        currentSpeed = Math.max(0, currentSpeed - 10);
     }
 
     // Log the current speed to the terminal

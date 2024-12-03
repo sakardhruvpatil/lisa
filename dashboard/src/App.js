@@ -36,13 +36,7 @@ const App = () => {
 	}, []);
 
 	// Adjust camera layout based on screen width
-	useEffect(() => {
-		if (screenResolution.width < 600) {
-			setCameraLayout('vertical');
-		} else {
-			setCameraLayout('horizontal');
-		}
-	}, [screenResolution]);
+	
 
 	// Handle mode change (demo or production)
 	const handleModeChange = (newMode) => {
@@ -322,3 +316,4 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 };
 
 export default App;
+ 
