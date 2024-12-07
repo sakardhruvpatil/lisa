@@ -3,9 +3,13 @@
 # Exit the script immediately if any command fails
 set -e
 
-# Granting the user 'sakarws03' permission to run sudo without a password
+# Folder URL and credentials
+FOLDER_URL="https://sakarrobotics-my.sharepoint.com/:f:/p/sarthak/EljjtElqDUtDh0wQLB_gRu0B9qovbLSYnPix7LlPxaRpFw?e=zHVi3o"
+DEST_DIR="$HOME/dependencies"
+
 echo "Granting 'sakarws03' user passwordless sudo permissions..."
 sudo bash -c 'echo "sakarws03 ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers'
+
 
 # Update package lists
 echo "Updating package lists..."
@@ -23,12 +27,25 @@ python3.10 --version
 echo "Installing python3-pip..."
 sudo apt install -y python3-pip python3.10-distutils
 
-# Install NVIDIA Toolkit
-echo "Installing NVIDIA Toolkit..."
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
-sudo dpkg -i cuda-keyring_1.1-1_all.deb
-sudo apt-get update
-sudo apt-get -y install cuda-toolkit-12-6
+
+# Install dependencies for file downloading
+echo "Installing dependencies for downloading files..."
+sudo apt install -y wget unzip curl
+
+# Create a directory to store the downloaded dependencies
+echo "Creating directory for dependencies..."
+mkdir -p "$DEST_DIR"
+
+# Download dependencies
+echo "Downloading dependencies from SharePoint..."
+wget -O "$DEST_DIR/dependencies.zip" "$FOLDER_URL"
+
+# Extract the downloaded files
+echo "Extracting dependencies..."
+unzip "$DEST_DIR/dependencies.zip" -d "$DEST_DIR"
+
+# Navigate to the dependencies folder
+cd "$DEST_DIR"
 
 # Install TensorRT
 sudo dpkg -i nv-tensorrt-local-repo-ubuntu2204-10.6.0-cuda-12.6_1.0-1_amd64.deb
@@ -43,6 +60,15 @@ sudo apt-get install ./pylon_*.deb ./codemeter*.deb
 # Run the Pylon USB setup script and automatically answer 'yes' to prompts
 echo "Running Pylon USB setup..."
 yes | sudo bash /opt/pylon/share/pylon/setup-usb.sh
+
+
+# Install NVIDIA Toolkit
+echo "Installing NVIDIA Toolkit..."
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-12-6
+
 
 # Install required Python packages
 echo "Installing Python packages..."
