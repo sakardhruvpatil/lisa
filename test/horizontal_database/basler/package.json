@@ -1,0 +1,62 @@
+{
+	"name": "dashboard",
+	"version": "0.1.0",
+	"private": true,
+	"homepage": ".",
+	"main": "main.js",
+	"dependencies": {
+		"@testing-library/jest-dom": "^5.17.0",
+		"@testing-library/react": "^13.4.0",
+		"@testing-library/user-event": "^13.5.0",
+		"chart.js": "^4.4.6",
+		"jshint": "^2.13.6",
+		"react": "^18.3.1",
+		"react-chartjs-2": "^5.2.0",
+		"react-datepicker": "^7.5.0",
+		"react-dom": "^18.3.1",
+		"react-modal": "^3.16.1",
+		"react-responsive": "^10.0.0",
+		"react-router-dom": "^6.27.0",
+		"react-scripts": "5.0.1",
+		"react-webcam": "^7.2.0",
+		"socket.io": "^4.8.1",
+		"web-vitals": "^2.1.4"
+	},
+	"scripts": {
+		"start": "npm run start-react",
+		"start-react": "react-scripts start",
+		"start-backend": "./backend/rejection_database.py",
+		"build": "react-scripts build",
+		"build-electron": "npm run build && cp build/index.html build/index.electron.html && sed -i 's/%PUBLIC_URL%//g' build/index.electron.html",
+		"test": "react-scripts test",
+		"eject": "react-scripts eject",
+		"electron": "electron .",
+		"electron-dev": "npm run build-electron && electron .",
+		"start:all": "concurrently --kill-others \"python3 /home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/main.py\" \"sleep 7 && npm run electron\"",
+		"start:all-dev": "concurrently --kill-others \"python3 /home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/main.py\" \"sleep 7 && npm run build-electron && electron .\"",
+		"postinstall": "electron-builder install-app-deps"
+	},
+	"eslintConfig": {
+		"extends": [
+			"react-app",
+			"react-app/jest"
+		]
+	},
+	"browserslist": {
+		"production": [
+			">0.2%",
+			"not dead",
+			"not op_mini all"
+		],
+		"development": [
+			"last 1 chrome version",
+			"last 1 firefox version",
+			"last 1 safari version"
+		]
+	},
+	"devDependencies": {
+		"concurrently": "^9.1.0",
+		"electron": "^33.2.1",
+		"electron-builder": "^25.1.8"
+	}
+}

@@ -13,10 +13,9 @@ import logo from './sakar.png'; // Import the logo image
 
 // Main App component
 const App = () => {
-	const [cameraLayout, setCameraLayout] = useState('horizontal');
-	const [mode, setMode] = useState('production'); // Default to demo mode
+	const [cameraLayout, setCameraLayout] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Initialize with mode from localStorage
+	const [mode, setMode] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Default to 'vertical'  
 	const [acceptanceRate, setAcceptanceRate] = useState(95); // Default acceptance rate
-	const [showLayoutModal, setShowLayoutModal] = useState(false);
 	const [screenResolution, setScreenResolution] = useState({
 		width: window.innerWidth,
 		height: window.innerHeight,
@@ -35,28 +34,29 @@ const App = () => {
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
-	// Adjust camera layout based on screen width
-	useEffect(() => {
-		if (screenResolution.width < 600) {
-			setCameraLayout('vertical');
-		} else {
-			setCameraLayout('horizontal');
-		}
-	}, [screenResolution]);
 
-	// Handle mode change (demo or production)
+	useEffect(() => {
+		const savedMode = localStorage.getItem('cameraMode') || 'vertical';
+		setMode(savedMode);
+		setCameraLayout(savedMode); // Adjust layout based on saved mode
+	}, []);
+
+	useEffect(() => {
+		if (mode === 'horizontal') {
+			setCameraLayout('horizontal');
+		} else if (mode === 'vertical') {
+			setCameraLayout('vertical');
+		}
+	}, [mode]); // Recalculate layout if mode changes
+
+
+	// Handle mode change and update layout accordingly
 	const handleModeChange = (newMode) => {
 		setMode(newMode);
-		if (newMode === 'production') {
-			setShowLayoutModal(true);
-		}
+		localStorage.setItem('cameraMode', newMode); // Save the mode to localStorage
+		setCameraLayout(newMode === 'vertical' ? 'horizontal' : 'vertical'); // Ensure layout reflects the mode
 	};
 
-	// Handle camera layout selection
-	const handleLayoutChange = (layout) => {
-		setCameraLayout(layout);
-		setShowLayoutModal(false);
-	};
 
 	return (
 		<div className="app-layout">
@@ -66,7 +66,21 @@ const App = () => {
 					{/* Logo Section */}
 					<div className="logo-container">
 						<img src={logo} alt="Logo" className="logo" />
+						<h1 className="Linen">
+							<span className="highlight-first-letter">L</span>inen
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">I</span>nspection
+							<span className="word-gap"> </span>
+							&
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">S</span>orting
+							<span className="word-gap"> </span>
+							<span className="highlight-first-letter">A</span>ssistant
+						</h1>
 					</div>
+
+
+
 					<Routes>
 						<Route
 							path="/"
@@ -104,21 +118,12 @@ const App = () => {
 				<div className={`webcam-section ${cameraLayout}`}>
 					<WebcamCapture mode={mode} cameraLayout={cameraLayout} />
 				</div>
-			</div>
 
-			{showLayoutModal && (
-				<div className="layout-modal">
-					<div className="modal-content">
-						<h2>Select Camera Layout</h2>
-						<button onClick={() => handleLayoutChange('vertical')}>Vertical</button>
-						<button onClick={() => handleLayoutChange('horizontal')}>Horizontal</button>
-					</div>
-				</div>
-			)}
+
+			</div>
 		</div>
 	);
 };
-
 // Component for the Home page with webcam controls
 const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 	const [speed, setSpeed] = useState(0);
@@ -178,20 +183,23 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 			};
 		};
 
-		if (mode === 'production') {
-			connectWebSocketLeft();
-			connectWebSocketRight();
-		} else {
-			// In demo mode, only connect left WebSocket
-			connectWebSocketLeft();
-		}
+	// For vertical mode, connect to both cameras
+	if (mode === 'vertical') {
+		connectWebSocketLeft();
+		connectWebSocketRight();
+	} else {
+		// In horizontal mode, connect to the available camera
+		// Try connecting to the left camera first
+		connectWebSocketLeft();
 
-		// Clean up WebSocket connections on unmount or mode change
-		return () => {
-			if (wsLeft) wsLeft.close();
-			if (wsRight) wsRight.close();
-		};
-	}, [mode]);
+	}
+
+	// Clean up WebSocket connections on unmount or mode change
+	return () => {
+		if (wsLeft) wsLeft.close();
+		if (wsRight) wsRight.close();
+	};
+}, [mode]);
 
 	// Update current time every second
 	useEffect(() => {
@@ -225,6 +233,8 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				<div className="line"></div>
 			</div>
 
+
+
 			<div className="current-time">
 				<p>
 					{currentTime.toLocaleString('en-US', {
@@ -241,7 +251,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 
 			{/* Display counts in separate tables for left and right cameras */}
 			<div className={`tables-container ${cameraLayout}`}>
-				{mode === 'demo' || mode === 'production' ? (
+				{mode === 'horizontal' || mode === 'vertical' ? (
 					<div className="table-wrapper">
 						<h3>Left Camera Counts</h3>
 						<div className="table-container">
@@ -254,6 +264,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 									</tr>
 								</thead>
 								<tbody>
+
 									<tr>
 										<td>{countDataLeft.total_accepted}</td>
 										<td>{countDataLeft.total_rejected}</td>
@@ -265,7 +276,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 					</div>
 				) : null}
 
-				{mode === 'production' && (
+				{mode === 'vertical' && (
 					<div className="table-wrapper">
 						<h3>Right Camera Counts</h3>
 						<div className="table-container">

@@ -45,11 +45,15 @@ app.add_middleware(
 # Global dictionary to hold camera processors
 camera_processors = {}
 
+# Shared lock for horizontal mode
+horizontal_processing_lock = threading.Lock()
+stop_event = threading.Event()
 
 class CameraProcessor:
-    def __init__(self, side, camera_manager):
+    def __init__(self, side, camera_manager, process_mode="vertical"):
         self.side = side  # 'left' or 'right'
         self.camera_manager = camera_manager
+        self.process_mode = process_mode  # Mode to determine vertical or horizontal processing
         self.latest_frame = None
         self.frame_lock = threading.Lock()
         # Initialize state
@@ -78,6 +82,12 @@ class CameraProcessor:
 
         self.stop_event = threading.Event()
 
+
+    def set_process_mode(self, mode):
+        """Set process mode: 'vertical' or 'horizontal'"""
+        self.process_mode = mode
+
+
     def start(self):
         # Start main loop thread
         self.main_loop_thread = threading.Thread(target=self.main_loop, daemon=True)
@@ -97,39 +107,83 @@ class CameraProcessor:
     def main_loop(self):
         try:
             while not self.stop_event.is_set():
-                frame = self.camera_manager.get_frame(self.side)
-                if frame is None:
-                    # Camera might not be connected or no frame available
-                    time.sleep(0.1)
-                    continue
-                try:
-                    self.process_frame(frame)
-                except Exception as e:
-                    logging.error(f"Error processing frame for {self.side}: {e}")
+                if self.process_mode == "horizontal":
+                    # Ensure only one thread processes stitched frames
+                    if horizontal_processing_lock.locked():
+                        time.sleep(0.1)  # Wait for ongoing processing
+                        continue
+                    
+                    with horizontal_processing_lock:
+                        left_frame = self.camera_manager.get_frame("left")
+                        right_frame = self.camera_manager.get_frame("right")
+                        if left_frame is not None and right_frame is not None:
+                            stitched_frame = self.stitch_frames(left_frame, right_frame)
+                            if stitched_frame is not None:
+                                try:
+                                    self.detect(stitched_frame)  # Process stitched frame only once
+                                except Exception as e:
+                                    logging.error(f"Error processing stitched frame: {e}")
+                        else:
+                            logging.warning("Skipping stitching due to missing frames.")
+                else:
+                    # Process individual frames in vertical mode
+                    frame = self.camera_manager.get_frame(self.side)
+                    if frame is None:
+                        time.sleep(0.1)
+                        continue
+                    try:
+                        self.process_frame(frame)
+                    except Exception as e:
+                        logging.error(f"Error processing frame for {self.side}: {e}")
 
-                # Check for "q" key press to exit the loop
                 if cv2.waitKey(1) & 0xFF == ord("q"):
-                    self.release_video_resources()
                     self.stop_event.set()
+                    stop_event.set()
                     print(f"Stopping {self.side} camera.")
-                    print(
-                        f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}"
-                    )
+                    print(f"Final bedsheet count for {self.side}: {self.bedsheet_count}")
                     break
 
         except KeyboardInterrupt:
+            self.stop_event.set()
+            stop_event.set()
+            print(f"Stopping {self.side} camera.")
+            print(f"Final bedsheet count for {self.side}: {self.bedsheet_count}")            
             print(f"Keyboard interrupt caught for {self.side}. Stopping camera.")
-            self.release_video_resources()
-            print(
-                f"Final total bedsheets counted for {self.side}: {self.bedsheet_count}"
-            )
             raise
 
     def process_frame(self, img):
-        # Crop the image from the top and bottom instead of left and right
-        height, width, _ = img.shape
-        cropped_img = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
-        self.detect(cropped_img)
+        if self.process_mode == "vertical":
+            # Process each side independently
+            height, width, _ = img.shape
+            cropped_img = img[:, CROP_LEFT: width - CROP_RIGHT]  # Crop left and right
+            self.detect(cropped_img)
+        elif self.process_mode == "horizontal":
+            # In horizontal mode, stitch frames from both cameras and process them only once
+            left_frame = self.camera_manager.get_frame("left")
+            right_frame = self.camera_manager.get_frame("right")
+            if left_frame is not None and right_frame is not None:
+                # Only process the stitched frame
+                stitched_frame = self.stitch_frames(left_frame, right_frame)
+                if stitched_frame is not None:
+                    print("Processing stitched frame...")
+                    self.detect(stitched_frame)  # Only process once for the stitched frame
+                else:
+                    logging.warning("Stitched frame is None. Skipping processing.")
+            else:
+                logging.warning("Left or right frame is None. Skipping stitching.")
+
+    def stitch_frames(self, left_frame, right_frame):
+        """Stitch two frames horizontally after resizing"""
+        try:
+            # Resize frames to reduce computation
+            left_frame_resized = cv2.resize(left_frame, (640, 480))
+            right_frame_resized = cv2.resize(right_frame, (640, 480))
+            stitched_frame = np.concatenate([left_frame_resized, right_frame_resized], axis=1)
+            return stitched_frame
+        except Exception as e:
+            logging.error(f"Error stitching frames: {e}")
+            return None
+
 
     def write_decision_to_file(self, decision):
         # Create the file if it does not exist
@@ -201,11 +255,11 @@ class CameraProcessor:
                                             )
                                             break  # Assuming one bedsheet per frame
 
-                    #    log_print(
-                    #        f"{self.side} camera: Bedsheet Present"
-                    #        if bedsheet_present
-                    #        else f"{self.side} camera: Bedsheet Not Present"
-                    #    )
+                        log_print(
+                            f"{self.side} camera: Bedsheet Present"
+                            if bedsheet_present
+                            else f"{self.side} camera: Bedsheet Not Present"
+                        )
                     except Exception as e:
                         log_bug(
                             f"{self.side} camera: Error during bedsheet detection. Exception: {e}"
@@ -680,13 +734,34 @@ async def update_threshold(request: Request):
             content={"error": "Invalid threshold value."}, status_code=400
         )
 
-
 @app.get("/get_current_threshold/{side}")
 async def get_current_threshold(side: str):
     if side not in camera_processors:
         return JSONResponse(content={"error": "Invalid side."}, status_code=400)
     camera_processor = camera_processors[side]
     return {"threshold": camera_processor.CLEAN_THRESHOLD}
+
+
+
+# Define the available processing modes
+PROCESS_MODES = ["vertical", "horizontal"]
+
+@app.get("/current_feed")
+async def get_current_feed():
+    # Determine which camera feed is active, for example
+    active_feed = "left" if camera_processors["left"].is_active else "right"
+    return {"activeFeed": active_feed}
+
+@app.get("/set_process_mode/{mode}")
+async def set_process_mode(mode: str):
+    if mode not in PROCESS_MODES:
+        raise HTTPException(status_code=400, detail="Invalid process mode")
+    
+    # Set the mode for both left and right camera processors
+    for side in camera_processors:
+        camera_processors[side].set_process_mode(mode)
+    
+    return {"message": f"Process mode set to {mode}"}
 
 
 @app.get("/video_feed/{side}")

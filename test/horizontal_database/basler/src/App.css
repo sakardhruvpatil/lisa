@@ -1,0 +1,707 @@
+/* General styles */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* App layout */
+.app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    flex-direction: row;
+    /* Align content and navbar horizontally */
+}
+
+.content.horizontal-layout {
+    display: flex;
+    flex-direction: row;
+}
+
+/* Layout for smaller screens */
+.content.vertical-layout {
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* Logo Container */
+.logo-container {
+    padding: 10px 10px;
+    display: flex;
+    flex-direction: column;
+    /* Stack children vertically */
+    justify-content: center;
+    /* Center vertically */
+    align-items: center;
+    /* Center horizontally */
+    margin-bottom: 10px;
+    /* Adds space below the logo */
+}
+
+/* Logo Image */
+.logo {
+    max-width: 600px;
+    /* Adjust as needed */
+    height: auto;
+}
+
+/* Logo Text */
+.linen {
+    font-size: 55px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 10px;
+    /* Adds space between logo and text */
+    text-align: center;
+    /* Centers the text */
+}
+
+/* Main Content Section */
+.content {
+    padding: 10px;
+    background-color: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Center items horizontally */
+    justify-content: flex-start;
+    /* Adjust to top initially for dynamic flow */
+    height: 100%;
+    /* Take up the available space */
+    min-height: 100vh;
+    /* Ensure it fills at least the viewport height */
+    overflow-y: auto;
+    /* Allow scrolling if content overflows */
+    box-sizing: border-box;
+    transition: all 0.3s ease-in-out;
+    /* Smooth transition for any dynamic changes */
+}
+
+/* Add responsive behavior for different screen sizes */
+@media (max-width: 768px) {
+    .content {
+        padding: 20px;
+        /* Add more padding on smaller screens */
+        justify-content: flex-start;
+        /* Ensure content starts from top */
+    }
+}
+
+@media (max-width: 480px) {
+    .content {
+        padding: 15px;
+        /* Further adjust padding for smaller devices */
+        justify-content: flex-start;
+        /* Keep content top-aligned */
+    }
+}
+
+/* Webcam Section */
+.webcam-section {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 45%;
+    height: 94vh;
+    margin-top: 15px;
+    margin-right: 20px;
+    background: #fff;
+    /* Soft gradient for a modern look */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+    border-radius: 10px;
+    /* Slightly more subtle rounded corners */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    /* Deeper shadow for more depth */
+    transition: all 0.3s ease-in-out;
+    /* Smooth transition */
+    overflow: hidden;
+    /* Prevent content overflow */
+}
+
+/* Webcam Section Hover Effect */
+.webcam-section:hover {
+    transform: scale(1.02);
+    /* Subtle zoom effect on hover */
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    /* Slightly stronger shadow on hover */
+}
+
+/* Adjusting Webcam Container */
+.webcam-container {
+    display: flex;
+    flex-direction: column;
+    /* Stack elements vertically */
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    /* Increased space between items for better visual balance */
+    max-width: 100%;
+    width: 100%;
+    /* Full width for responsiveness */
+    text-align: center;
+    /* Center text for labels */
+}
+
+/* Camera Label (left and right camera names) */
+.webcam-container h3 {
+    font-size: 2.4rem;
+    /* Increased font size for better readability */
+    font-weight: 600;
+    /* Lighter weight for a modern, clean look */
+    color: #4a4a4a;
+    /* Darker shade for text */
+    margin-bottom: 12px;
+    /* More spacing between label and webcam feed */
+    text-transform: uppercase;
+    /* Capitalized for a bold, structured feel */
+    letter-spacing: 1px;
+    /* Increased letter spacing for added elegance */
+}
+
+/* Add a subtle border around the webcam container */
+.webcam-container {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    /* Soft border for better definition */
+    border-radius: 40px;
+    /* Slight curve for a softer look */
+    padding: 20px;
+    /* Increased padding for comfort */
+    background-color: #fff;
+    /* Clean white background */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .webcam-section {
+        width: 70%;
+        /* Adjust width for smaller screens */
+        margin-top: 20px;
+        /* Reduce top margin on smaller screens */
+    }
+
+    .webcam-container h3 {
+        font-size: 1.2rem;
+        /* Slightly smaller font for mobile */
+    }
+}
+
+
+/* Responsive Webcam Section */
+@media (max-width: 768px) {
+    .webcam-section {
+        width: 80%;
+        /* Adjust width on smaller screens */
+    }
+
+    .webcam-container {
+        flex-direction: column;
+        /* Stack webcams vertically on smaller screens */
+    }
+}
+
+/* Webcam Container Video Styling */
+.webcam-container video {
+    border-radius: 15px;
+    /* Rounded corners for videos */
+    border: 3px solid #fc981e;
+    /* Clear orange border for contrast */
+    background-color: #000;
+    /* Ensure background is black to enhance border visibility */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* Soft shadow for videos */
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+    /* Smooth hover effect */
+}
+
+/* Hover Effect for Webcam Videos */
+.webcam-container video:hover {
+    transform: scale(1.05);
+    /* Slight zoom effect on hover */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    /* Stronger shadow on hover */
+}
+
+
+/* Dashboard Content */
+.dashboard {
+    background-color: #ffffff;
+    height: 100vh;
+    width: 43vw;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #333;
+    box-sizing: border-box;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px #333(0, 0, 0, 0.1);
+    /* Shadow for depth */
+    transition: all 0.3s ease;
+}
+
+/* Main heading */
+.main-heading {
+    font-size: 40px;
+    margin-bottom: 10px;
+    color: #fc981e;
+    text-align: center;
+    width: 100%;
+}
+
+/* Acceptance Rate Display */
+.acceptance-rate-display p {
+    font-size: 40px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 40px;
+    /* Added margin-top for spacing */
+}
+
+@media (max-width: 768px) {
+    .acceptance-rate-display p {
+        font-size: 22px;
+    }
+}
+
+.acceptance-rate-value {
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 50px;
+    /* Added margin-top for spacing */
+}
+
+.analytics-data {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.contact-container {
+    margin: 10px 0;
+    text-align: center;
+}
+
+/* Container and Header Styles */
+.about-container {
+    padding: 40px 20px;
+    font-family: 'Roboto', sans-serif;
+    /* Removed background color and gradient */
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow for depth */
+    margin-top: 50px;
+}
+
+.about-heading {
+    font-size: 42px;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+}
+
+.about-description {
+    font-size: 18px;
+    color: #555;
+    line-height: 1.8;
+    text-align: center;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+/* Company Info and Features Section */
+.company-info,
+.lisa-features {
+    margin: 40px 0;
+}
+
+.section-heading {
+    font-size: 36px;
+    color: #fc981e;
+    text-align: center;
+    margin-bottom: 25px;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    /* Soft shadow for text */
+}
+
+.company-text {
+    font-size: 20px;
+    color: #333;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    text-align: justify;
+    transition: all 0.3s ease;
+}
+
+.company-text:hover {
+    transform: scale(1.02);
+    /* Subtle zoom effect for hover */
+    color: #fc981e;
+    /* Change text color on hover */
+}
+
+/* List Styles */
+.features-list,
+.values-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+    text-align: left;
+}
+
+.features-list li,
+.values-list li {
+    font-size: 20px;
+    color: #333;
+    margin: 15px 0;
+    line-height: 1.6;
+    position: relative;
+    padding-left: 25px;
+}
+
+.features-list li:before,
+.values-list li:before {
+    content: '✔';
+    /* Add a checkmark icon before each item */
+    position: absolute;
+    left: 0;
+    color: #fc981e;
+    font-size: 20px;
+    top: 0;
+}
+
+/* Values List */
+.values-list li {
+    font-weight: bold;
+    color: #fc981e;
+}
+
+.features-list li:hover,
+.values-list li:hover {
+    color: #fc981e;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .about-container {
+        padding: 20px;
+    }
+
+    .about-heading {
+        font-size: 30px;
+    }
+
+    .about-description {
+        font-size: 16px;
+    }
+
+    .section-heading {
+        font-size: 24px;
+    }
+
+    .features-list li,
+    .values-list li {
+        font-size: 16px;
+    }
+}
+
+
+/* Controls styling */
+.controls {
+    display: flex;
+    align-items: center;
+    margin-top: 40px;
+    /* Added margin-top for spacing */
+}
+
+button {
+    padding: 10px 15px;
+    font-size: 28px;
+    margin-left: 40px;
+    margin-top: 100px;
+    cursor: pointer;
+    border: none;
+    border-radius: 20px;
+    background-color: #fc981e;
+    color: white;
+    margin: 0 10px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #fc981e;
+
+}
+
+.speed-display {
+    font-size: 30px;
+    margin: 0 20px;
+}
+
+/* Speed Button Label */
+.speed-button-label {
+    text-align: center;
+    margin-top: 5px;
+
+    font-size: 22px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Current Time Styling */
+.current-time {
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 0px;
+    /* Added margin-top for spacing */
+}
+
+/* Summary Table */
+.summary-table {
+    width: 95%;
+    /* Set to full width */
+    max-width: none;
+    /* Remove the maximum width restriction */
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 10px 10px -10px;
+    /* Adjusted to center it properly without shifting */
+    border-collapse: collapse;
+    border-radius: 10px;
+    /* Smaller border radius for the whole table */
+    overflow: hidden;
+    /* Prevent content overflow */
+    background-color: #ffffff;
+    /* Light background for the table */
+}
+
+.summary-table th,
+.summary-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    font-size: 20px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* Header Style */
+.summary-table th {
+    background-color: #fc981e;
+    color: white;
+}
+
+/* Bottom Row Design */
+.summary-table tr:last-child td {
+    background: linear-gradient(135deg, #fff, #fff);
+    /* Soft gradient for bottom row */
+    color: #333;
+    /* Dark text for contrast */
+    border-bottom-left-radius: 15px;
+    /* Rounded bottom-left corner */
+    border-bottom-right-radius: 15px;
+    /* Rounded bottom-right corner */
+    box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* Light inner shadow for depth */
+    font-weight: bold;
+    /* Lighter weight for the bottom row for contrast */
+}
+
+/* Optional: Apply rounded corners to the first and last row */
+.summary-table tr:first-child th {
+    border-top-left-radius: 10px;
+    /* Rounded top-left corner */
+    border-top-right-radius: 10px;
+    /* Rounded top-right corner */
+
+}
+
+/* Hover Effect for Bottom Row */
+.summary-table tr:last-child td:hover {
+    transform: translateY(-2px);
+    /* Slight hover lift */
+    box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.15);
+    /* Stronger shadow on hover */
+    background: linear-gradient(135deg, #fff, #fff);
+    /* Darker gradient on hover */
+}
+
+/* Optional: Apply rounded corners to each individual cell */
+.summary-table th,
+.summary-table td {
+    border-radius: 5px;
+    /* Rounded corners for each cell */
+}
+
+/* Settings Page Styles */
+.settings-container {
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.settings-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+.settings-option {
+    margin: 10px 0;
+    width: 100%;
+    text-align: center;
+}
+
+.save-button {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.acceptance-rate {
+    font-size: 28px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-top: 45px;
+    /* Added margin-top for spacing */
+}
+
+/* Modal Styles for Layout */
+.layout-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.layout-modal .modal-content table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.layout-modal .modal-content th,
+.layout-modal .modal-content td {
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+
+.layout-modal .modal-content th {
+    background-color: #fc981e;
+    color: white;
+}
+
+/* Modal Buttons Styling */
+.layout-modal .modal-content button {
+    width: 100%;
+    margin: 5px 0;
+    padding: 10px;
+    background-color: #fc981e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.layout-modal .modal-content button:hover {
+    background-color: #fc981e;
+}
+
+/* Calendar Styles */
+.calendar-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+input[type="date"] {
+    padding: 10px;
+    font-size: 16px;
+    margin-right: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 200px;
+}
+
+input[type="date"]:focus {
+    outline: none;
+    border-color: #fc981e;
+}
+
+/* Font size for Left Camera Counts */
+.tables-container .table-wrapper:nth-child(1) h3 {
+    font-size: 23px;
+    /* You can adjust the font size as needed */
+    color: #333;
+    /* Optional: add a color for better readability */
+}
+
+/* Font size for Right Camera Counts */
+.tables-container .table-wrapper:nth-child(2) h3 {
+    font-size: 23px;
+    /* You can adjust the font size as needed */
+    color: #333;
+    /* Optional: add a color for better readability */
+}
+
+.Linen {
+    display: inline;
+    /* Keeps the words inline */
+}
+
+.highlight-first-letter {
+    color: #fc981e;
+    /* Apply color to the first letter */
+    font-size: 50px;
+    font-weight: bold;
+    /* Optional: make it bold */
+}
+
+.word-gap {
+    margin-right: 8px;
+    /* Adds space between the words */
+}

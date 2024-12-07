@@ -130,6 +130,55 @@ test/dashboard/webcam/yarn-error.log*
 
 
 # dependencies
+test/horizontal_database/basler/node_modules
+test/horizontal_database/basler/.pnp
+test/horizontal_database/basler/.pnp.js
+test/horizontal_database/basler/server/node_modules
+
+# testing
+test/horizontal_database/basler/coverage/
+
+# production
+test/horizontal_database/basler/build/
+
+# misc
+test/horizontal_database/basler/.DS_Store
+test/horizontal_database/basler/.env.local
+test/horizontal_database/basler/.env.development.local
+test/horizontal_database/basler/.env.test.local
+test/horizontal_database/basler/.env.production.local
+
+test/horizontal_database/basler/npm-debug.log*
+test/horizontal_database/basler/yarn-debug.log*
+
+
+
+
+# dependencies
+test/horizontal_database/webcam/node_modules
+test/horizontal_database/webcam/.pnp
+test/horizontal_database/webcam/.pnp.js
+test/horizontal_database/webcam/server/node_modules
+
+# testing
+test/horizontal_database/webcam/coverage/
+
+# production
+test/horizontal_database/webcam/build/
+
+# misc
+test/horizontal_database/webcam/.DS_Store
+test/horizontal_database/webcam/.env.local
+test/horizontal_database/webcam/.env.development.local
+test/horizontal_database/webcam/.env.test.local
+test/horizontal_database/webcam/.env.production.local
+
+test/horizontal_database/webcam/npm-debug.log*
+test/horizontal_database/webcam/yarn-debug.log*
+
+
+
+# dependencies
 test/hadapsar/node_modules
 test/hadapsar/.pnp
 test/hadapsar/.pnp.js
