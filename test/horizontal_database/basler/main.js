@@ -1,6 +1,7 @@
 // main.js
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
+const { exec } = require('child_process');
 
 let win;
 
@@ -25,8 +26,52 @@ function createWindow() {
 		win.webContents.setZoomFactor(0.8); // Adjust zoom level (0.8 = 80%)
 	});
 
-	win.on('closed', () => {
-		win = null;
+	win.on('close', (e) => {
+		e.preventDefault(); // Prevent default close
+		exec('pkexec /usr/local/bin/close_app.sh', (error, stdout, stderr) => {
+			if (error) {
+				dialog.showErrorBox('Authentication Failed', 'You must authenticate to close the app.');
+				console.error(`Error: ${error.message}`);
+				return;
+			}
+			if (stderr) {
+				console.error(`Stderr: ${stderr}`);
+			}
+			console.log(`Stdout: ${stdout}`);
+			win.destroy(); // Close the window only after authentication
+		});
+	});
+
+	win.on('leave-full-screen', (e) => {
+		e.preventDefault(); // Prevent default fullscreen exit
+		exec('pkexec /usr/local/bin/exit_fullscreen.sh', (error, stdout, stderr) => {
+			if (error) {
+				dialog.showErrorBox('Authentication Failed', 'You must authenticate to exit fullscreen.');
+				console.error(`Error: ${error.message}`);
+				return;
+			}
+			if (stderr) {
+				console.error(`Stderr: ${stderr}`);
+			}
+			console.log(`Stdout: ${stdout}`);
+			win.setFullScreen(false); // Exit fullscreen only after authentication
+		});
+	});
+
+	win.on('blur', (e) => {
+		// Trigger authentication when switching apps
+		exec('pkexec /usr/local/bin/switch_apps.sh', (error, stdout, stderr) => {
+			if (error) {
+				dialog.showErrorBox('Authentication Failed', 'You must authenticate to switch applications.');
+				console.error(`Error: ${error.message}`);
+				win.focus(); // Return focus to the app if authentication fails
+				return;
+			}
+			if (stderr) {
+				console.error(`Stderr: ${stderr}`);
+			}
+			console.log(`Stdout: ${stdout}`);
+		});
 	});
 }
 
