@@ -126,7 +126,7 @@ const AnalyticsData = () => {
             <h1>Analytics Data</h1>
 
             {/* Button to trigger monthly data pop-up */}
-            <div style={{ textAlign: 'center', fontSize: '22px', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', fontSize: '28px', marginBottom: '20px' }}>
                 <button onClick={toggleMonthlyDataPopup}>Show Monthly Data</button>
             </div>
 
@@ -168,7 +168,7 @@ const AnalyticsData = () => {
             {/* Date Picker */}
             <div
                 className="date-picker-container"
-                style={{ marginBottom: '20px', textAlign: 'center', fontSize: '20px', fontWeight: 'bold' }}
+                style={{ marginBottom: '20px', textAlign: 'center', fontSize: '28px', fontWeight: 'bold' }}
             >
                 <label htmlFor="date-picker">Select Date: </label>
                 <DatePicker
@@ -178,9 +178,26 @@ const AnalyticsData = () => {
                     dateFormat="yyyy-MM-dd"
                     placeholderText="Click to select a date"
                     maxDate={new Date()}
+                    className="custom-datepicker" // Add custom class
                 />
                 <button onClick={() => setSelectedDate(null)}>Clear Date</button>
             </div>
+
+            {/* Inline styles for custom date picker */}
+            <style>
+                {`
+                    .custom-datepicker {
+                        font-size: 25px; /* Increase font size */
+                        font-weight: bold;
+                        padding: 10px; /* Add padding */
+                        height: 35px; /* Set height */
+                        border: 1px solid #ccc; /* Add border */
+                        border-radius: 5px; /* Optional: rounded corners */
+                        outline: none; /* Remove outline */
+                        width: 250px; /* Set a specific width */
+                    }
+                `}
+            </style>
 
             {/* Data Table */}
             <div className="table-container">
@@ -212,32 +229,7 @@ const AnalyticsData = () => {
                 </table>
             </div>
 
-            {/* Line Chart for Daily Analytics */}
-            <div className="chart-container">
-                <h3>Daily Chart</h3>
-                <Line
-                    data={dailyChartData}
-                    options={{
-                        responsive: true,
-                        plugins: { legend: { position: 'top' } },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Date',
-                                },
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Count',
-                                },
-                                beginAtZero: true,
-                            },
-                        },
-                    }}
-                />
-            </div>
+
         </div>
     );
 };

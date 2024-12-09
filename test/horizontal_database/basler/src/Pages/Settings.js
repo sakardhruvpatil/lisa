@@ -54,16 +54,16 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 	};	
 
 	return (
-		<div className="settings-container" style={{ marginTop: '10px' }}>
-			<h1>Settings</h1>
+		<div className="settings-container" style={{ marginBottom: '60px', fontSize: '48px', fontWeight: 'bold' }}>
+			<label>Settings</label>
 
-			<div className="mode-selection">
+			<div className="mode-selection" style={{ marginTop: '40px'}}>
 				<button onClick={() => handleModeChange('horizontal')}>Horizontal</button>
 				<button onClick={() => handleModeChange('vertical')}>Vertical</button>
 			</div>
 
 			<div className="acceptance-rate" style={{ marginTop: '50px' }}>
-				<label>Set Acceptance Rate:</label>
+				<label>Set Acceptance Rate</label>
 				<div className="slider-container" style={{ marginTop: '30px' }}>
 					<input
 						type="range"
@@ -71,6 +71,14 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 						max="100"
 						value={localAcceptanceRate}
 						onChange={handleSliderChange}
+						style={{
+							width: '33vw', // Width of the slider
+							height: '25px', // Height of the slider (this affects the thumb size)
+							background: '#ddd', // Background color of the track
+							borderRadius: '5px', // Rounded corners
+							outline: 'none', // Remove outline
+							cursor: 'pointer' // Pointer cursor on hover
+						}}
 					/>
 					<div className="acceptance-rate-value" style={{ marginTop: '20px' }}>{localAcceptanceRate}%</div>
 				</div>

@@ -357,7 +357,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 			</div>
 
 			{/* Centered Controls */}
-			<div className="controls-container">
+			<div className="controls-container" style={{ marginTop: '50px' }}>
 				<div className="controls">
 					<button onClick={() => changeSpeed('decrease')}>-</button>
 					<p className="speed-display">{speed}</p>

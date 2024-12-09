@@ -26,7 +26,7 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="title">LISA</Link>
+      <Link to="/" className="title" style={{ marginBottom: '30px' }}>LISA</Link>
       <div className="menu" onClick={() => setMenuOpen(!menuOpen)}>
         <div className={menuOpen ? "open" : ""}></div>
         <div className={menuOpen ? "open" : ""}></div>
@@ -35,7 +35,7 @@ const Navbar = () => {
 
       {/* Sidebar */}
       <div className={`sidebar ${menuOpen ? "open" : ""}`}>
-        {menuOpen && <div className="sidebar-title">LISA</div>} {/* Add title in the sidebar */}
+        {menuOpen && <div className="sidebar-title" style={{ marginBottom: '30px' }}>LISA</div>} {/* Add title in the sidebar */}
         <ul>
           <li><NavLink to="/" activeClassName="active">Home</NavLink></li>
           <li><NavLink to="/about" activeClassName="active">About</NavLink></li>
