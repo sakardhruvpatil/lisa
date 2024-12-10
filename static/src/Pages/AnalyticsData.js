@@ -39,6 +39,7 @@ const AnalyticsData = () => {
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const data = await response.json();
                 setDailyData(Array.isArray(data) ? data : []);
+                setFilteredData(getLast7DaysData(data)); // Show last 7 days initially
             } catch (error) {
                 console.error('Error fetching daily analytics data:', error);
                 setDailyData([]);
@@ -46,6 +47,18 @@ const AnalyticsData = () => {
         };
         fetchDailyData();
     }, []);
+
+    // Helper function to filter data for the last 7 days
+    const getLast7DaysData = (data) => {
+        const today = new Date();
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+
+        return data.filter((item) => {
+            const itemDate = new Date(item.date);
+            return itemDate >= sevenDaysAgo && itemDate <= today;
+        });
+    };
 
     // Fetch monthly data from backend
     useEffect(() => {

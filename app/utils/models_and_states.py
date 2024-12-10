@@ -1,6 +1,8 @@
 # models_and_states.py
 # Model Loading and FSM Defining
-
+import sys
+sys.path.insert(0, '/home/dp/lisa/app/utils')
+sys.path.insert(0, '/home/dp/lisa/app/config')
 from enum import Enum
 from ultralytics import YOLO
 from config import BEDSHEET_MODEL_PATH, DEFECT_MODEL_PATH

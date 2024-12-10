@@ -1,6 +1,7 @@
 # csv_saving.py
 # Converting the database to CSV file for understanding of a normal user
-
+import sys
+sys.path.insert(0, '/home/dp/lisa/app/utils')
 import pandas as pd
 import os
 from logger import log_bug, log_print

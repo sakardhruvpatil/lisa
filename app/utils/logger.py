@@ -1,6 +1,7 @@
 # logger.py
 # Bud logging
-
+import sys
+sys.path.insert(0, '/home/dp/lisa/app/config')
 from datetime import datetime
 from config import BUG_LOG_FILE
 

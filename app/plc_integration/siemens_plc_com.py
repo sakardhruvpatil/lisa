@@ -61,8 +61,8 @@ try:
     while True:
     # Process signal_code1
     # Read signals from files
-        signal_code1 = read_signal_from_file('/home/sr10/Documents/lisa/test/hadapsar/backend/double/decision_left.txt')
-        signal_code2 = read_signal_from_file('/home/sr10/Documents/lisa/test/hadapsar/backend/double/decision_right.txt')
+        signal_code1 = read_signal_from_file('/home/dp/lisa/app/decision_left.txt')
+        signal_code2 = read_signal_from_file('/home/dp/lisa/app/decision_right.txt')
 
         if signal_code1 is not None:
             signal_code1_bool = str_to_bool(signal_code1)

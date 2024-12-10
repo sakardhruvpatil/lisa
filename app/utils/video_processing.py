@@ -2,6 +2,9 @@ import os
 import time
 import cv2
 from pypylon import pylon
+import sys
+sys.path.insert(0, '/home/dp/lisa/app/utils')
+sys.path.insert(0, '/home/dp/lisa/app/config')
 from logger import log_bug, log_print
 from config import VIDEO_SOURCE_LEFT, VIDEO_SOURCE_RIGHT
 

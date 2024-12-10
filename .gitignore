@@ -3,7 +3,7 @@
 *.avi
 *.csv
 *.pyc
-
+app/bug_log.txt
 # dependencies
 static/node_modules
 static/.pnp

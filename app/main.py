@@ -6,6 +6,11 @@ import signal
 import sys
 import cv2
 from datetime import datetime, date, timezone
+
+sys.path.insert(0, '/home/dp/lisa/app/utils')
+sys.path.insert(0, '/home/dp/lisa/app/database')
+sys.path.insert(0, '/home/dp/lisa/app/config')
+
 from config import *
 from database import *
 from logger import log_bug, log_print
@@ -1548,7 +1553,7 @@ async def get_combined_daily_analytics():
         # Convert the date string to a datetime object
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         # Format the date to include the weekday
-        formatted_date = date_obj.strftime("%A, %B %d, %Y")  # e.g., "Monday, December 02, 2024"
+        formatted_date = date_obj.strftime("%Y-%m-%d")
 
         response_data.append(
             {

@@ -22,11 +22,11 @@ VIDEO_SOURCE_RIGHT = "192.168.1.20"  # IP address of the right Basler camera
 
 
 # Model paths
-BEDSHEET_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.engine"
-DEFECT_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.engine"
+BEDSHEET_MODEL_PATH = "/home/dp/lisa/app/models/bedsheet_v11.engine"
+DEFECT_MODEL_PATH = "/home/dp/lisa/app/models/defect.engine"
 
 # Tracker path
-TRACKER_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml"
+TRACKER_PATH = "/home/dp/lisa/app/models/botsort_defect.yaml"
 
 # Threshold
 DEFAULT_THRESHOLD = 95.0
