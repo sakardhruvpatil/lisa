@@ -126,7 +126,7 @@ const AnalyticsData = () => {
             <h1>Analytics Data</h1>
 
             {/* Button to trigger monthly data pop-up */}
-            <div style={{ textAlign: 'center', fontSize: '22px', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', fontSize: '28px', marginBottom: '20px' }}>
                 <button onClick={toggleMonthlyDataPopup}>Show Monthly Data</button>
             </div>
 
@@ -168,7 +168,7 @@ const AnalyticsData = () => {
             {/* Date Picker */}
             <div
                 className="date-picker-container"
-                style={{ marginBottom: '20px', textAlign: 'center', fontSize: '20px', fontWeight: 'bold' }}
+                style={{ marginBottom: '20px', textAlign: 'center', fontSize: '28px', fontWeight: 'bold' }}
             >
                 <label htmlFor="date-picker">Select Date: </label>
                 <DatePicker
@@ -178,9 +178,44 @@ const AnalyticsData = () => {
                     dateFormat="yyyy-MM-dd"
                     placeholderText="Click to select a date"
                     maxDate={new Date()}
+                    className="custom-datepicker" // Add custom class
                 />
                 <button onClick={() => setSelectedDate(null)}>Clear Date</button>
             </div>
+
+            {/* Inline styles for custom date picker */}
+            <style>
+                {`
+                    .custom-datepicker {
+                        font-size: 23px;
+                        padding: 10px;
+                        border: 1px solid #ccc;
+                        border-radius: 5px;
+                        width: 220px;
+                    }
+                    .react-datepicker {
+                        font-size: 18px;
+                        width: 337px;
+                    }
+                    .react-datepicker__day-names {
+                        display: flex; /* Use flexbox to control spacing */
+                        justify-content: space-between; /* Add even spacing between items */
+                        white-space: nowrap;
+                        margin-bottom: -8px;
+                        text-align: center;
+                        padding: 4px 2px; /* Add vertical padding */
+                        column-gap: 5px; /* Adjust gap between day names */
+                    }
+                    .react-datepicker__day {
+                        width: 41px;
+                        height: 42px;
+                    }
+                    .react-datepicker__header {
+                        background-color: #f0f0f0;
+                        font-size: 22px;
+                    }
+                `}
+            </style>
 
             {/* Data Table */}
             <div className="table-container">
@@ -212,32 +247,7 @@ const AnalyticsData = () => {
                 </table>
             </div>
 
-            {/* Line Chart for Daily Analytics */}
-            <div className="chart-container">
-                <h3>Daily Chart</h3>
-                <Line
-                    data={dailyChartData}
-                    options={{
-                        responsive: true,
-                        plugins: { legend: { position: 'top' } },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Date',
-                                },
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Count',
-                                },
-                                beginAtZero: true,
-                            },
-                        },
-                    }}
-                />
-            </div>
+
         </div>
     );
 };

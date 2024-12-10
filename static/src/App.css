@@ -75,7 +75,7 @@ body {
     /* Take up the available space */
     min-height: 100vh;
     /* Ensure it fills at least the viewport height */
-    overflow-y: auto;
+    overflow: auto;
     /* Allow scrolling if content overflows */
     box-sizing: border-box;
     transition: all 0.3s ease-in-out;
@@ -143,9 +143,9 @@ body {
     /* Stack elements vertically */
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 15px;
     /* Increased space between items for better visual balance */
-    max-width: 100%;
+    max-width: 95%;
     width: 100%;
     /* Full width for responsiveness */
     text-align: center;
@@ -174,7 +174,7 @@ body {
     /* Soft border for better definition */
     border-radius: 40px;
     /* Slight curve for a softer look */
-    padding: 20px;
+    padding: 15px;
     /* Increased padding for comfort */
     background-color: #fff;
     /* Clean white background */
@@ -183,7 +183,7 @@ body {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .webcam-section {
-        width: 70%;
+        width: 65%;
         /* Adjust width for smaller screens */
         margin-top: 20px;
         /* Reduce top margin on smaller screens */
@@ -236,8 +236,8 @@ body {
 .dashboard {
     background-color: #ffffff;
     height: 100vh;
-    width: 43vw;
-    overflow-y: hidden;
+    width: 45vw;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -265,7 +265,7 @@ body {
     text-align: center;
     font-weight: bold;
     color: #333;
-    margin-top: 40px;
+    margin-top: 20px;
     /* Added margin-top for spacing */
 }
 
@@ -276,7 +276,7 @@ body {
 }
 
 .acceptance-rate-value {
-    font-size: 28px;
+    font-size: 38px;
     text-align: center;
     font-weight: bold;
     color: #333;
@@ -303,6 +303,8 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     /* Subtle shadow for depth */
     margin-top: 50px;
+    overflow-y: auto;
+
 }
 
 .about-heading {
@@ -478,7 +480,7 @@ button:hover {
 
 /* Summary Table */
 .summary-table {
-    width: 95%;
+    width: 85%;
     /* Set to full width */
     max-width: none;
     /* Remove the maximum width restriction */
@@ -486,6 +488,7 @@ button:hover {
     align-items: center;
     justify-content: center;
     margin: 10px 10px 10px -10px;
+    margin-left: 40px;
     /* Adjusted to center it properly without shifting */
     border-collapse: collapse;
     border-radius: 10px;
@@ -499,8 +502,8 @@ button:hover {
 .summary-table th,
 .summary-table td {
     border: 1px solid #ddd;
-    padding: 8px;
-    font-size: 20px;
+    padding: 16px;
+    font-size: 28px;
     text-align: center;
     align-items: center;
     justify-content: center;
@@ -566,8 +569,9 @@ button:hover {
 }
 
 .settings-title {
-    font-size: 24px;
-    margin-bottom: 20px;
+    font-size: 38px;
+    margin-bottom: 40px;
+    font-weight: bold;
 }
 
 .settings-option {
@@ -582,7 +586,7 @@ button:hover {
 }
 
 .acceptance-rate {
-    font-size: 28px;
+    font-size: 38px;
     text-align: center;
     font-weight: bold;
     color: #333;
@@ -660,7 +664,7 @@ button:hover {
 
 input[type="date"] {
     padding: 10px;
-    font-size: 16px;
+    font-size: 28px;
     margin-right: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -674,7 +678,7 @@ input[type="date"]:focus {
 
 /* Font size for Left Camera Counts */
 .tables-container .table-wrapper:nth-child(1) h3 {
-    font-size: 23px;
+    font-size: 28px;
     /* You can adjust the font size as needed */
     color: #333;
     /* Optional: add a color for better readability */
@@ -682,7 +686,7 @@ input[type="date"]:focus {
 
 /* Font size for Right Camera Counts */
 .tables-container .table-wrapper:nth-child(2) h3 {
-    font-size: 23px;
+    font-size: 28px;
     /* You can adjust the font size as needed */
     color: #333;
     /* Optional: add a color for better readability */
