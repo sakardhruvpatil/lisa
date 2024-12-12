@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -36,28 +35,31 @@ const AnalyticsData = () => {
         const fetchDailyData = async () => {
             try {
                 const response = await fetch('http://localhost:8000/daily_analytics');
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const data = await response.json();
-                setDailyData(Array.isArray(data) ? data : []);
-                setFilteredData(getLast7DaysData(data)); // Show last 7 days initially
+                console.log("Backend Data:", data);
+
+                setDailyData(data);  // Full data
+                // Initially set to last 7 days
+                setFilteredData(getLast7DaysData(data));
             } catch (error) {
-                console.error('Error fetching daily analytics data:', error);
-                setDailyData([]);
+                console.error("Error fetching daily analytics data:", error);
             }
         };
+
         fetchDailyData();
-    }, []);
+    }, []); // Ensure no unnecessary re-fetching
 
-    // Helper function to filter data for the last 7 days
+    // Helper function to filter data for the last 7 logged days
     const getLast7DaysData = (data) => {
-        const today = new Date();
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
+        // Sort the data by date in descending order
+        const sortedData = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        return data.filter((item) => {
-            const itemDate = new Date(item.date);
-            return itemDate >= sevenDaysAgo && itemDate <= today;
-        });
+        // Take the first 7 entries from the sorted data
+        const last7Days = sortedData.slice(0, 7);
+
+        console.log("Filtered Data for Last 7 Logged Dates:", last7Days); // Debugging
+
+        return last7Days;
     };
 
     // Fetch monthly data from backend
@@ -75,7 +77,7 @@ const AnalyticsData = () => {
         fetchMonthlyData();
     }, []);
 
-    // Filter data based on selected date
+    // Filter data based on selected date or show last 7 logged days
     useEffect(() => {
         if (selectedDate) {
             // Convert selectedDate to UTC date string in 'YYYY-MM-DD' format
@@ -90,12 +92,14 @@ const AnalyticsData = () => {
                 console.log('Item Date:', item.date);
             });
 
-            const filtered = dailyData.filter(
+            const data = dailyData.filter(
                 (item) => item.date === selectedDateString
             );
-            setFilteredData(filtered);
+            setFilteredData(data);
         } else {
-            setFilteredData(dailyData);
+            // When no date is selected, show the last 7 logged days
+            const last7Days = getLast7DaysData(dailyData);
+            setFilteredData(last7Days);
         }
     }, [selectedDate, dailyData]);
 
@@ -107,31 +111,6 @@ const AnalyticsData = () => {
     // Toggle monthly data pop-up
     const toggleMonthlyDataPopup = () => {
         setShowMonthlyData(!showMonthlyData);
-    };
-
-    // Prepare chart data for daily analytics
-    const sortedDailyData = [...dailyData].sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
-    );
-
-    const dailyChartData = {
-        labels: sortedDailyData.map((item) => item.date),
-        datasets: [
-            {
-                label: 'Total Accepted',
-                data: sortedDailyData.map((item) => item.total_accepted),
-                borderColor: 'green',
-                backgroundColor: 'rgba(0, 255, 0, 0.2)',
-                fill: true,
-            },
-            {
-                label: 'Total Rejected',
-                data: sortedDailyData.map((item) => item.total_rejected),
-                borderColor: 'red',
-                backgroundColor: 'rgba(255, 0, 0, 0.2)',
-                fill: true,
-            },
-        ],
     };
 
     return (
@@ -154,7 +133,7 @@ const AnalyticsData = () => {
                                 <thead>
                                     <tr>
                                         <th>Month</th>
-                                        <th>Total Bedsheets</th> {/* Added Header */}
+                                        <th>Total Bedsheets</th>
                                         <th>Accepted</th>
                                         <th>Rejected</th>
                                     </tr>
@@ -163,7 +142,7 @@ const AnalyticsData = () => {
                                     {monthlyData.map((item, index) => (
                                         <tr key={index}>
                                             <td>{item.month_year}</td>
-                                            <td>{item.total_bedsheets}</td> {/* Display Total Bedsheets */}
+                                            <td>{item.total_bedsheets}</td>
                                             <td>{item.accepted}</td>
                                             <td>{item.rejected}</td>
                                         </tr>
@@ -191,7 +170,7 @@ const AnalyticsData = () => {
                     dateFormat="yyyy-MM-dd"
                     placeholderText="Click to select a date"
                     maxDate={new Date()}
-                    className="custom-datepicker" // Add custom class
+                    className="custom-datepicker"
                 />
                 <button onClick={() => setSelectedDate(null)}>Clear Date</button>
             </div>
@@ -211,13 +190,13 @@ const AnalyticsData = () => {
                         width: 337px;
                     }
                     .react-datepicker__day-names {
-                        display: flex; /* Use flexbox to control spacing */
-                        justify-content: space-between; /* Add even spacing between items */
+                        display: flex;
+                        justify-content: space-between;
                         white-space: nowrap;
                         margin-bottom: -8px;
                         text-align: center;
-                        padding: 4px 2px; /* Add vertical padding */
-                        column-gap: 5px; /* Adjust gap between day names */
+                        padding: 4px 2px;
+                        column-gap: 5px;
                     }
                     .react-datepicker__day {
                         width: 41px;
@@ -253,13 +232,12 @@ const AnalyticsData = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="4">No data available for the selected date.</td>
+                                <td colSpan="4">No data available for the selected dates.</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
-
 
         </div>
     );

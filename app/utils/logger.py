@@ -1,9 +1,8 @@
 # logger.py
 # Bud logging
-import sys
-sys.path.insert(0, '/home/dp/lisa/app/config')
 from datetime import datetime
-from config import BUG_LOG_FILE
+from config.config import BUG_LOG_FILE  # Import from config directory
+
 
 def log_bug(bug_message):
     with open(BUG_LOG_FILE, "a") as f:

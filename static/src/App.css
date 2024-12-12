@@ -513,7 +513,7 @@ button:hover {
 }
 
 /* Bottom Row Design */
-.summary-table tr:last-child td {
+.summary-table tr:first-child td {
     background: linear-gradient(135deg, #fff, #fff);
     /* Soft gradient for bottom row */
     color: #333;
@@ -522,14 +522,14 @@ button:hover {
     /* Rounded bottom-left corner */
     border-bottom-right-radius: 15px;
     /* Rounded bottom-right corner */
-    box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: inset 8px 20px 22px rgba(0, 0, 0, 0.15);
     /* Light inner shadow for depth */
     font-weight: bold;
     /* Lighter weight for the bottom row for contrast */
 }
 
 /* Optional: Apply rounded corners to the first and last row */
-.summary-table tr:first-child th {
+.summary-table tr:last-child th {
     border-top-left-radius: 10px;
     /* Rounded top-left corner */
     border-top-right-radius: 10px;
@@ -537,15 +537,7 @@ button:hover {
 
 }
 
-/* Hover Effect for Bottom Row */
-.summary-table tr:last-child td:hover {
-    transform: translateY(-2px);
-    /* Slight hover lift */
-    box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.15);
-    /* Stronger shadow on hover */
-    background: linear-gradient(135deg, #fff, #fff);
-    /* Darker gradient on hover */
-}
+
 
 /* Optional: Apply rounded corners to each individual cell */
 .summary-table th,

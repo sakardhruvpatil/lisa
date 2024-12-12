@@ -1,21 +1,13 @@
 # main.py
 # Full machine vision Logic
 
-import torch
-import signal
-import sys
 import cv2
 from datetime import datetime, date, timezone
-
-sys.path.insert(0, '/home/dp/lisa/app/utils')
-sys.path.insert(0, '/home/dp/lisa/app/database')
-sys.path.insert(0, '/home/dp/lisa/app/config')
-
-from config import *
-from database import *
-from logger import log_bug, log_print
-from video_processing import CameraManager
-from models_and_states import State, bedsheet_model, defect_model
+from config.config import *
+from database.database import *
+from utils.logger import log_bug, log_print
+from utils.video_processing import CameraManager
+from utils.models_and_states import State, bedsheet_model, defect_model
 import pytz
 import numpy as np
 from fastapi import (

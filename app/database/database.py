@@ -6,12 +6,9 @@ from pymongo.errors import PyMongoError
 from datetime import datetime, timezone
 import pytz
 import time
-import sys
-sys.path.insert(0, '/home/dp/lisa/app/utils')
-sys.path.insert(0, '/home/dp/lisa/app/config')
-from logger import log_bug, log_print
+from config.config import MONGO_URI, DB_NAME,  TIMEZONE, DEFAULT_THRESHOLD  # Adjusted import path
+from utils.logger import log_bug, log_print
 import numpy as np
-from config import MONGO_URI, DB_NAME, TIMEZONE, DEFAULT_THRESHOLD
 
 
 # Helper function to get the current date as a string

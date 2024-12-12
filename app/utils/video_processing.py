@@ -2,15 +2,9 @@ import os
 import time
 import cv2
 from pypylon import pylon
-import sys
-sys.path.insert(0, '/home/dp/lisa/app/utils')
-sys.path.insert(0, '/home/dp/lisa/app/config')
-from logger import log_bug, log_print
-from config import VIDEO_SOURCE_LEFT, VIDEO_SOURCE_RIGHT
+from config.config import VIDEO_SOURCE_LEFT, VIDEO_SOURCE_RIGHT, LEFT_CAMERA_PFS, RIGHT_CAMERA_PFS
+from utils.logger import log_bug, log_print
 
-# Paths to your PFS files
-LEFT_CAMERA_PFS = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/left_camera_config.pfs"
-RIGHT_CAMERA_PFS = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/right_camera_config.pfs"
 
 class CameraManager:
     def __init__(self, side=None, source=None):

@@ -26,15 +26,16 @@
 	"scripts": {
 		"start": "npm run start-react",
 		"start-react": "react-scripts start",
-		"start-backend": "./backend/rejection_database.py",
+		"start-backend": "../app/main.py",
 		"build": "react-scripts build",
 		"build-electron": "npm run build && cp build/index.html build/index.electron.html && sed -i 's/%PUBLIC_URL%//g' build/index.electron.html",
 		"test": "react-scripts test",
 		"eject": "react-scripts eject",
 		"electron": "electron .",
 		"electron-dev": "npm run build-electron && electron .",
-		"start:all": "concurrently --kill-others \"python3 /home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/main.py\" \"sleep 7 && npm run electron\"",
-		"start:all-dev": "concurrently --kill-others \"python3 /home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/horizontal_database/basler/backend/double/main.py\" \"sleep 7 && npm run build-electron && electron .\"",
+		"prepare-env": "npm install && npm install electron --save-dev && npm install concurrently --save-dev",
+		"start-all": "concurrently --kill-others \"python3 ../app/main.py\" \"sleep 15 && npm run electron\"",
+		"start-all-dev": "npm run prepare-env && concurrently --kill-others \"python3 ../app/main.py\" \"sleep 15 && npm run build-electron && electron .\"",
 		"postinstall": "electron-builder install-app-deps"
 	},
 	"eslintConfig": {
