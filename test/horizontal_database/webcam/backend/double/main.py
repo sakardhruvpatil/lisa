@@ -1,5 +1,7 @@
 # main.py
+# Full machine vision Logic
 
+import torch
 import signal
 import sys
 import cv2
@@ -202,20 +204,6 @@ class CameraProcessor:
         y1_positions = []
         y2_positions = []
 
-        # Check frame sizes
-        if self.previous_frame is None:
-            self.previous_frame = frame
-
-        # Check frame sizes
-        if self.previous_frame is None or frame is None:
-            log_bug("Skipping defect detection due to invalid frames.")
-            return
-
-        if self.previous_frame.shape != frame.shape:
-            log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape}"
-            )
-            return
 
         # Reset error state after 100 frames
         if self.defect_tracking_error and self.frame_counter >= 100:
@@ -705,15 +693,6 @@ class CameraProcessor:
                 self.frame_counter += 1
         # Update the previous frame for the next iteration
         self.previous_frame = frame.copy()
-        
-    def release_video_resources(self):
-        try:
-            self.camera_manager.release_video_resources()
-            log_print(f"{self.side.capitalize()} camera: Video capture released.")
-        except Exception as e:
-            log_bug(
-                f"{self.side.capitalize()} camera: Failed to release video resources. Exception: {e}"
-            )
 
 
 class StitchedCameraProcessor:
@@ -824,20 +803,20 @@ class StitchedCameraProcessor:
             logging.error(f"Error stitching frames: {e}")
             return None
 
+    # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
-        # Create the file if it does not exist
-        decision_file = "decision_horizontal.txt"
-        if not os.path.exists(decision_file):
-            with open(decision_file, "w") as file:
-                pass  # Create an empty file
+        # Write the decision to both "decision_left.txt" and "decision_right.txt"
+        for side in ["left", "right"]:
+            decision_file = f"decision_{side}.txt"
+            if not os.path.exists(decision_file):
+                with open(decision_file, "w") as file:
+                    pass  # Create an empty file
 
-        # Write the decision to the file
-        with open(decision_file, "w") as file:
-            file.write(str(decision))
+            with open(decision_file, "w") as file:
+                file.write(str(decision))
 
     def detect_horizontal(self, stitched_frame):
         global CLEAN_THRESHOLD  # Access the global variable
-        print(f"Using threshold for detection: {CLEAN_THRESHOLD}")
 
         # Check if the previous frame is None
         if self.previous_frame is None:
@@ -860,20 +839,6 @@ class StitchedCameraProcessor:
         y1_positions = []
         y2_positions = []
 
-        # Check frame sizes
-        if self.previous_frame is None:
-            self.previous_frame = stitched_frame
-
-        # Check frame sizes
-        if self.previous_frame is None or stitched_frame is None:
-            log_bug("Skipping defect detection due to invalid frames.")
-            return
-
-        if self.previous_frame.shape != stitched_frame.shape:
-            log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {stitched_frame.shape}"
-            )
-            return
 
         # Reset error state after 100 frames
         if self.defect_tracking_error and self.frame_counter >= 100:
@@ -1049,10 +1014,6 @@ class StitchedCameraProcessor:
                                             (0, 0, 255),
                                             1,
                                         )
-
-
-                                    # Log the current threshold being used
-                                    print(f"Using threshold: {CLEAN_THRESHOLD} for cleanliness check.")
 
                                     # Immediate rejection if dirty percentage exceeds 100%
                                     if defect_percent_real_time >= 100:
@@ -1587,7 +1548,7 @@ async def get_combined_daily_analytics():
         # Convert the date string to a datetime object
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         # Format the date to include the weekday
-        formatted_date = date_obj.strftime("%A, %B %d, %Y")  # e.g., "Monday, December 02, 2024"
+        formatted_date = date_obj.strftime("%Y-%m-%d")
 
         response_data.append(
             {

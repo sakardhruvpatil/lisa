@@ -17,8 +17,8 @@ VIDEO_SOURCE_LEFT = 0
 VIDEO_SOURCE_RIGHT = 2
 
 # Model paths
-BEDSHEET_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.pt"
-DEFECT_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.pt"
+BEDSHEET_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/bedsheet_v11.engine"
+DEFECT_MODEL_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/defect.engine"
 
 # Tracker path
 TRACKER_PATH = "/home/sakarws03/Documents/Sarthak/SakarRobotics/lisa/test/models/botsort_defect.yaml"
