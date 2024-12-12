@@ -1,59 +1,133 @@
 import React from 'react';
 
 const Contact = () => {
-  const containerStyle = {
-    maxWidth: '800px',
-    margin: '50px auto',
-    padding: '20px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    fontFamily: 'Arial, sans-serif',
-    backgroundColor: '#f9f9f9',
+  const styles = {
+    container: {
+      maxWidth: '800px',
+      margin: '50px auto',
+      padding: '30px',
+      borderRadius: '12px',
+      backgroundColor: '#fff',
+      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+      fontFamily: 'Roboto, sans-serif',
+      textAlign: 'center',
+      overflow: 'hidden',
+      transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+    },
+   
+    heading: {
+      fontSize: '36px',
+      color: '#fc981e',
+      marginBottom: '20px',
+      textTransform: 'uppercase',
+      letterSpacing: '2px',
+      transition: 'color 0.3s ease',
+    },
+ 
+    description: {
+      fontSize: '18px',
+      color: '#555',
+      lineHeight: '1.8',
+      marginBottom: '20px',
+      fontStyle: 'italic',
+      transition: 'all 0.3s ease-in-out',
+    },
+    descriptionHover: {
+      color: '#333',
+    },
+    list: {
+      listStyleType: 'none',
+      padding: 0,
+      margin: '20px 0',
+      fontSize: '18px',
+      color: '#555',
+      textAlign: 'left',
+    },
+    listItem: {
+      marginBottom: '15px',
+      position: 'relative',
+      paddingLeft: '25px',
+      transition: 'all 0.3s ease-in-out',
+    },
+    listItemHover: {
+      color: '#fc981e',
+      transform: 'translateX(10px)',
+    },
+    listItemIcon: {
+      content: "'📍'", // Icon as content
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      fontSize: '20px',
+      color: '#fc981e',
+    },
   };
 
-  const headerStyle = {
-    textAlign: 'center',
-    color: 'orange', // Changed color to orange
-    marginBottom: '20px',
-  };
+  // Hover effects with state
+  const [hovered, setHovered] = React.useState({ container: false, heading: false, description: false, listItems: {} });
 
-  const textStyle = {
-    fontSize: '16px',
-    color: '#555',
-    lineHeight: '1.6',
-  };
-
-  const listStyle = {
-    listStyleType: 'none',
-    padding: 0,
-    marginTop: '20px',
-    fontSize: '16px',
-    color: '#555',
-  };
-
-  const listItemStyle = {
-    marginBottom: '10px',
+  const toggleHover = (key, index = null) => {
+    setHovered((prev) => {
+      if (index !== null) {
+        return {
+          ...prev,
+          listItems: { ...prev.listItems, [index]: !prev.listItems[index] },
+        };
+      }
+      return { ...prev, [key]: !prev[key] };
+    });
   };
 
   return (
-    <div style={containerStyle}>
-      <h1 style={headerStyle}>Contact Us</h1>
-      <p style={textStyle}>
-        We value your feedback and inquiries. Our team is here to assist you with any questions or concerns you may have. Please feel free to reach out to us using the information below:
+    <div
+      style={{
+        ...styles.container,
+        ...(hovered.container && styles.containerHover),
+      }}
+      onMouseEnter={() => toggleHover('container')}
+      onMouseLeave={() => toggleHover('container')}
+    >
+      <h1
+        style={{
+          ...styles.heading,
+          ...(hovered.heading && styles.headingHover),
+        }}
+        onMouseEnter={() => toggleHover('heading')}
+        onMouseLeave={() => toggleHover('heading')}
+      >
+        Contact Us
+      </h1>
+      <p
+        style={{
+          ...styles.description,
+          ...(hovered.description && styles.descriptionHover),
+        }}
+        onMouseEnter={() => toggleHover('description')}
+        onMouseLeave={() => toggleHover('description')}
+      >
+        We value your feedback and inquiries. Our team is here to assist you with any questions or concerns you may have.
       </p>
-      <ul style={listStyle}>
-        <li style={listItemStyle}>
-          <strong>Email:</strong> contact@sakarrobotics.com
-        </li>
-        <li style={listItemStyle}>
-          <strong>Phone:</strong> +91 79722 51272
-        </li>
-        <li style={listItemStyle}>
-          <strong>Address:</strong> Sakar Robotics, 2nd Floor, ANSEC House, Tank Road, Shanti Nagar, Yerwada, Pune, MH 411006
-        </li>
+      <ul style={styles.list}>
+        {['Email: contact@sakarrobotics.com', 'Phone: +91 79722 51272', 'Address: Sakar Robotics, 2nd Floor, Pune'].map((item, index) => (
+          <li
+            key={index}
+            style={{
+              ...styles.listItem,
+              ...(hovered.listItems[index] && styles.listItemHover),
+            }}
+            onMouseEnter={() => toggleHover(null, index)}
+            onMouseLeave={() => toggleHover(null, index)}
+          >
+            {item}
+          </li>
+        ))}
       </ul>
-      <p style={textStyle}>
+      <p
+        style={{
+          ...styles.description,
+          ...(hovered.description && styles.descriptionHover),
+        }}
+      >
         Whether you have a question about our services, pricing, or anything else, we are here to help you.
       </p>
     </div>
