@@ -9,6 +9,12 @@ app.use(express.json());
 
 let currentSpeed = 0; // Initial speed
 
+// Check if the log.txt file exists, if not, create it
+const logFilePath = '../../app/plc_integration/log.txt';
+if (!fs.existsSync(logFilePath)) {
+    fs.writeFileSync(logFilePath, ''); // Create an empty log.txt if it doesn't exist
+}
+
 app.post('/change-speed', (req, res) => {
     const { action } = req.body;
 
@@ -24,7 +30,7 @@ app.post('/change-speed', (req, res) => {
 
     // Log the current speed to the log.txt file
     const logMessage = `Current Speed: ${currentSpeed}\n`;
-    fs.appendFile('log.txt', logMessage, (err) => {
+    fs.appendFile(logFilePath, logMessage, (err) => {
         if (err) {
             console.error('Failed to write to log.txt', err);
         } else {

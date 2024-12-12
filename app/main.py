@@ -168,7 +168,7 @@ class CameraProcessor:
 
     def write_decision_to_file(self, decision):
         # Create the file if it does not exist
-        decision_file = f"decision_{self.side}.txt"
+        decision_file = f"plc_integration/decision_{self.side}.txt"
         if not os.path.exists(decision_file):
             with open(decision_file, "w") as file:
                 pass  # Create an empty file
@@ -804,7 +804,7 @@ class StitchedCameraProcessor:
     def write_decision_to_file(self, decision):
         # Write the decision to both "decision_left.txt" and "decision_right.txt"
         for side in ["left", "right"]:
-            decision_file = f"decision_{side}.txt"
+            decision_file = f"plc_integration/decision_{side}.txt"
             if not os.path.exists(decision_file):
                 with open(decision_file, "w") as file:
                     pass  # Create an empty file
