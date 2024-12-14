@@ -320,6 +320,8 @@ class CameraProcessor:
                                         f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to defect percent >= 100%"
                                     )
                                     self.write_decision_to_file(True)
+                                    time.sleep(1)
+                                    self.write_decision_to_file(False)
                                     decision = "Rejected"
                                     log_to_mongo(
                                         self.collection,
@@ -355,6 +357,8 @@ class CameraProcessor:
                                     self.await_ending_edge = True
                                     self.display_not_clean = True
                                     self.write_decision_to_file(True)
+                                    time.sleep(1)                                    
+                                    self.write_decision_to_file(False)
 
                                     # Log cleanliness analysis
                                     analysis_message = (
@@ -474,6 +478,8 @@ class CameraProcessor:
                             self.await_ending_edge = True
                             self.display_not_clean = True
                             self.write_decision_to_file(True)
+                            time.sleep(1)
+                            self.write_decision_to_file(False)
 
                             # Log cleanliness analysis
                             analysis_message = (
