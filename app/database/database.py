@@ -29,8 +29,9 @@ def connect_to_mongo():
             log_print(f"Connected to MongoDB on attempt {attempt + 1}")
             return db
         except PyMongoError as e:
+            error_code = 1001  # error code
             log_bug(
-                f"Attempt {attempt + 1} failed to connect to MongoDB. Exception: {e}"
+                f"Attempt {attempt + 1} failed to connect to MongoDB. Exception: {e}(Error Code: {error_code})"
             )
             if attempt < max_retries - 1:
                 log_print(f"Retrying in {retry_delay} seconds...")
@@ -48,7 +49,8 @@ def get_daily_collection(db, side):
         date_str = datetime.now(local_timezone).strftime("%Y%m%d")
         return db[f"logs_{side}_{date_str}"]
     except PyMongoError as e:
-        log_bug(f"Failed to access daily collection for {side}. Exception: {e}")
+        error_code = 1002  # error code
+        log_bug(f"Failed to access daily collection for {side}. Exception: {e}(Error Code: {error_code})")
         raise
 
 # Get daily collection
@@ -58,7 +60,8 @@ def get_daily_collection_hor(db):
         date_str = datetime.now(local_timezone).strftime("%Y%m%d")
         return db[f"logs_hor_{date_str}"]
     except PyMongoError as e:
-        log_bug(f"Failed to access daily collection for hor. Exception: {e}")
+        error_code = 1002  # error code
+        log_bug(f"Failed to access daily collection for hor. Exception: {e}(Error Code: {error_code})")
         raise
 
 
@@ -89,7 +92,8 @@ def log_to_mongo(
         }
         collection.insert_one(document)
     except Exception as e:
-        log_bug(f"Failed to log to MongoDB. Document: {document}. Exception: {e}")
+        error_code = 1003  # error code
+        log_bug(f"Failed to log to MongoDB. Document: {document}. Exception: {e}(Error Code: {error_code})")
 
 
 # Function to log to the horizontal collection
@@ -259,8 +263,9 @@ def update_history(history_collection, date, threshold, decision):
             # If the document is missing, initialize it
             initialize_history_document(history_collection, date, threshold)
     except Exception as e:
+        error_code = 1004  # error code
         log_bug(
-            f"Failed to update history. Date: {date}, Threshold: {threshold}, Decision: {decision}. Exception: {e}"
+            f"Failed to update history. Date: {date}, Threshold: {threshold}, Decision: {decision}. Exception: {e}(Error Code: {error_code})"
         )
 
 # Update history document
@@ -333,8 +338,9 @@ def update_history_hor(history_collection_hor, date, threshold, decision):
             # If the document is missing, initialize it
             initialize_history_document_hor(history_collection_hor, date, threshold)
     except Exception as e:
+        error_code = 1004  # error code
         log_bug(
-            f"Failed to update history. Date: {date}, Threshold: {threshold}, Decision: {decision}. Exception: {e}"
+            f"Failed to update history. Date: {date}, Threshold: {threshold}, Decision: {decision}. Exception: {e}(Error Code: {error_code})"
         )
 
 

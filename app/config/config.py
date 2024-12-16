@@ -1,6 +1,7 @@
 # config.py
 #Configuring Parameters like Model Path, Camera IP, MongoDB Configurations.
 import os
+from datetime import datetime
 
 # Dynamically calculate the base directory as the app directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,8 +10,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MONGO_URI = "mongodb://localhost:27017/"
 DB_NAME = "lisa_db"
 
-# Log file
-BUG_LOG_FILE = os.path.join(BASE_DIR, "bug_log.txt")
+# Log file: Ensure writable directory outside the AppImage
+BUG_LOG_DIR = os.path.join(os.getenv('HOME'), "LISA_LOGS")
+os.makedirs(BUG_LOG_DIR, exist_ok=True)  # Ensure the directory exists
+
+# Dynamic bug log file path
+def get_bug_log_file():
+    current_date = datetime.now().strftime("%Y-%m-%d")  # Get today's date
+    return os.path.join(BUG_LOG_DIR, f"bug_log_{current_date}.txt")  # Generate file path for the date
 
 # Video configuration
 
@@ -19,8 +26,8 @@ CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
 
 # Update video sources to use IP addresses for Basler cameras
-VIDEO_SOURCE_LEFT = "192.168.1.11"  # IP address of the left Basler camera
-VIDEO_SOURCE_RIGHT = "192.168.1.21"  # IP address of the right Basler camera
+VIDEO_SOURCE_LEFT = "192.168.1.10"  # IP address of the left Basler camera
+VIDEO_SOURCE_RIGHT = "192.168.1.20"  # IP address of the right Basler camera
 
 # Paths to your PFS files
 LEFT_CAMERA_PFS = os.path.join(BASE_DIR, "config/left_camera_config.pfs")
@@ -36,6 +43,10 @@ TRACKER_PATH = os.path.join(BASE_DIR, "models/botsort_defect.yaml")
 
 # Threshold
 DEFAULT_THRESHOLD = 95.0
+
+# Configuring Parameters for Accept/Reject decision
+ACCEPT = 0  # Can also be True, False, 1, or 0 as per your requirement
+REJECT = 1  # Can also be True, False, 1, or 0 as per your requirement
 
 # Date/Time configuration
 TIMEZONE = "Asia/Kolkata"

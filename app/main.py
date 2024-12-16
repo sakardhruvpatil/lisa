@@ -18,7 +18,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 import logging
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
@@ -166,16 +166,29 @@ class CameraProcessor:
         cropped_img = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
         self.detect(cropped_img)
 
+    # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
-        # Create the file if it does not exist
-        decision_file = f"plc_integration/decision_{self.side}.txt"
-        if not os.path.exists(decision_file):
-            with open(decision_file, "w") as file:
-                pass  # Create an empty file
+        """
+        Write the decision to both "decision_left.txt" and "decision_right.txt"
+        in a directory outside the AppImage, ensuring it is writable.
+        Uses ACCEPT and REJECT from config.
+        """
+        # Define the writable directory for bug logs
+        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
+        os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
 
-        # Write the decision to the file
-        with open(decision_file, "w") as file:
-            file.write(str(decision))
+        # Determine the decision value from config
+        decision_value = REJECT if decision == REJECT else ACCEPT
+
+        for side in ["left", "right"]:
+            decision_file = os.path.join(log_dir, f"decision_{side}.txt")
+            try:
+                # Write the decision to the file
+                with open(decision_file, "w") as file:
+                    file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
+                print(f"Decision for {side} camera written to {decision_file}.")
+            except Exception as e:
+                print(f"Failed to write decision for {side} camera: {e}")
 
     def detect(self, frame):
         global CLEAN_THRESHOLD  # Access the global variable
@@ -187,8 +200,9 @@ class CameraProcessor:
 
         # Ensure both frames are of the same size
         if self.previous_frame.shape != frame.shape:
-            log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape}"
+            error_code=1014
+            log_bug( 
+                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape}(Error code: {error_code})"
             )
             return
         # Get video properties
@@ -263,8 +277,9 @@ class CameraProcessor:
                             #    else f"{self.side} camera: Bedsheet Not Present"
                             #)
                         except Exception as e:
+                            error_code=1015
                             log_bug(
-                                f"{self.side} camera: Error during bedsheet detection. Exception: {e}"
+                                f"{self.side} camera: Error during bedsheet detection. Exception: {e}(Error code: {error_code})"
                             )
                             log_print(
                                 f"{self.side} camera: Skipping bedsheet detection due to an error."
@@ -289,8 +304,9 @@ class CameraProcessor:
                             except Exception as e:
                                 self.defect_tracking_error = True
                                 defect_results = None  # Ensure defect_results is defined
+                                error_code=1016
                                 log_bug(
-                                    f"{self.side} camera: Defect tracking error occurred. Exception: {e}"
+                                    f"{self.side} camera: Defect tracking error occurred. Exception: {e}(Error code: {error_code})"
                                 )
                                 log_print(
                                     f"{self.side} camera: Skipping defect detection due to an error. Feed will continue running."
@@ -387,7 +403,7 @@ class CameraProcessor:
                                         log_print(
                                             f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to defect percent >= 100%"
                                         )
-                                        self.write_decision_to_file(True)
+                                        self.write_decision_to_file(REJECT)
                                         decision = "Rejected"
                                         log_to_mongo(
                                             self.collection,
@@ -422,7 +438,7 @@ class CameraProcessor:
                                         )
                                         self.await_ending_edge = True
                                         self.display_not_clean = True
-                                        self.write_decision_to_file(True)
+                                        self.write_decision_to_file(REJECT)
 
                                         # Log cleanliness analysis
                                         analysis_message = (
@@ -497,7 +513,7 @@ class CameraProcessor:
                                 self.display_not_clean = (
                                     False  # No need to display "Not Clean"
                                 )
-                                self.write_decision_to_file(False)
+                                self.write_decision_to_file(ACCEPT)
 
                                 # Log cleanliness analysis
                                 analysis_message = (
@@ -541,7 +557,7 @@ class CameraProcessor:
 
                                 self.await_ending_edge = True
                                 self.display_not_clean = True
-                                self.write_decision_to_file(True)
+                                self.write_decision_to_file(REJECT)
 
                                 # Log cleanliness analysis
                                 analysis_message = (
@@ -684,9 +700,10 @@ class CameraProcessor:
 
             except Exception as e:
                 self.defect_tracking_error = True
+                error_code:1017
                 log_bug(
-                    f"{self.side} camera: Error during detect processing. Exception: {e}"
-                )                
+                    f"{self.side} camera: Error during detect processing. Exception: {e}(Error code: {error_code})"
+                )        
                 self.frame_counter += 1
         # Update the previous frame for the next iteration
         self.previous_frame = frame.copy()
@@ -785,7 +802,8 @@ class StitchedCameraProcessor:
                 else:
                     time.sleep(0.1)  # Sleep to avoid busy waiting
             except Exception as e:
-                log_bug(f"Error in stitched camera processing: {e}")
+                error_code=1018
+                log_bug(f"Error in stitched camera processing: {e}(Error code: {error_code})")
 
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
@@ -802,15 +820,27 @@ class StitchedCameraProcessor:
 
     # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
-        # Write the decision to both "decision_left.txt" and "decision_right.txt"
-        for side in ["left", "right"]:
-            decision_file = f"plc_integration/decision_{side}.txt"
-            if not os.path.exists(decision_file):
-                with open(decision_file, "w") as file:
-                    pass  # Create an empty file
+        """
+        Write the decision to both "decision_left.txt" and "decision_right.txt"
+        in a directory outside the AppImage, ensuring it is writable.
+        Uses ACCEPT and REJECT from config.
+        """
+        # Define the writable directory for bug logs
+        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
+        os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
 
-            with open(decision_file, "w") as file:
-                file.write(str(decision))
+        # Determine the decision value from config
+        decision_value = REJECT if decision == REJECT else ACCEPT
+
+        for side in ["left", "right"]:
+            decision_file = os.path.join(log_dir, f"decision_{side}.txt")
+            try:
+                # Write the decision to the file
+                with open(decision_file, "w") as file:
+                    file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
+                print(f"Decision for {side} camera written to {decision_file}.")
+            except Exception as e:
+                print(f"Failed to write decision for {side} camera: {e}")
 
     def detect_horizontal(self, stitched_frame):
         global CLEAN_THRESHOLD  # Access the global variable
@@ -822,8 +852,9 @@ class StitchedCameraProcessor:
 
         # Ensure both frames are of the same size
         if self.previous_frame.shape != stitched_frame.shape:
+            error_code=1014
             log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {stitched_frame.shape}"
+                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {stitched_frame.shape}(Error code: {error_code})"
             )
             return
         # Get video properties
@@ -898,7 +929,8 @@ class StitchedCameraProcessor:
                             #    else "Bedsheet Not Present"
                             #)
                         except Exception as e:
-                            log_bug(f"Error during bedsheet detection. Exception: {e}")
+                            error_code=1015
+                            log_bug(f"Error during bedsheet detection. Exception: {e}(Error code: {error_code})")
                             log_print("Skipping bedsheet detection due to an error.")
 
                 elif self.state == State.TRACKING_SCANNING and defect_model:
@@ -918,8 +950,9 @@ class StitchedCameraProcessor:
                                 defect_results = (
                                     None  # Ensure defect_results is defined
                                 )
+                                error_code=1016
                                 log_bug(
-                                    f"Defect tracking error occurred. Exception: {e}"
+                                    f"Defect tracking error occurred. Exception: {e}(Error code: {error_code})"
                                 )
                                 log_print(
                                     "Skipping defect detection due to an error. Feed will continue running."
@@ -1020,7 +1053,7 @@ class StitchedCameraProcessor:
                                         log_print(
                                             f"Bedsheet {self.bedsheet_count + 1}: Rejected due to defect percent >= 100%"
                                         )
-                                        self.write_decision_to_file(True)
+                                        self.write_decision_to_file(REJECT)
                                         decision = "Rejected"
                                         log_to_horizontal(
                                             self.horizontal_collection,
@@ -1055,7 +1088,7 @@ class StitchedCameraProcessor:
                                         )
                                         self.await_ending_edge = True
                                         self.display_not_clean = True
-                                        self.write_decision_to_file(True)
+                                        self.write_decision_to_file(REJECT)
 
                                         # Log cleanliness analysis
                                         analysis_message = (
@@ -1133,7 +1166,7 @@ class StitchedCameraProcessor:
                                 self.display_not_clean = (
                                     False  # No need to display "Not Clean"
                                 )
-                                self.write_decision_to_file(False)
+                                self.write_decision_to_file(ACCEPT)
 
                                 # Log cleanliness analysis
                                 analysis_message = (
@@ -1175,7 +1208,7 @@ class StitchedCameraProcessor:
 
                                 self.await_ending_edge = True
                                 self.display_not_clean = True
-                                self.write_decision_to_file(True)
+                                self.write_decision_to_file(REJECT)
 
                                 # Log cleanliness analysis
                                 analysis_message = (
@@ -1321,7 +1354,8 @@ class StitchedCameraProcessor:
 
             except Exception as e:
                 self.defect_tracking_error = True
-                log_bug(f"Defect tracking error occurred. Exception: {e}")
+                error_code=1016
+                log_bug(f"Defect tracking error occurred. Exception: {e}(Error code: {error_code})")
                 self.frame_counter += 1
         # Update the previous frame for the next iteration
         self.previous_frame = stitched_frame.copy()
@@ -1403,14 +1437,13 @@ PROCESS_MODES = ["vertical", "horizontal"]
 @app.get("/current_feed")
 async def get_current_feed():
     if camera_processors["left"].is_active and camera_processors["right"].is_active:
-        active_feed = "horizontal"
+        active_feed = "horizontal"  # Both cameras active, horizontal mode
     elif camera_processors["left"].is_active:
-        active_feed = "left"
+        active_feed = "left"  # Only left camera active, show left feed
     elif camera_processors["right"].is_active:
-        active_feed = "right"
+        active_feed = "right"  # Only right camera active, show right feed
     else:
-        active_feed = "none"
-
+        active_feed = "none"  # No active feed
     return {"activeFeed": active_feed}
 
 
@@ -1444,39 +1477,80 @@ async def set_process_mode(mode: str):
 
     return {"message": f"Process mode set to {mode}"}
 
+@app.get("/frame_status/{mode}")
+async def frame_status(mode: str):
+    if mode == "horizontal":
+        if stitched_camera_processor is None:
+            return JSONResponse({"frame_available": False})
+        camera_processor = stitched_camera_processor
+    else:
+        if mode not in camera_processors:
+            return JSONResponse({"frame_available": False})
+        camera_processor = camera_processors[mode]
+
+    # Check if the latest frame is available
+    frame_available = camera_processor.latest_frame is not None
+    return JSONResponse({"frame_available": frame_available})
 
 @app.get("/video_feed/{mode}")
 async def video_feed(mode: str):
     if mode == "horizontal":
         if stitched_camera_processor is None:
-            raise HTTPException(
-                status_code=404, detail="Stitched camera processor not found"
-            )
+            raise HTTPException(status_code=404, detail="Stitched camera processor not found")
         camera_processor = stitched_camera_processor
     else:
         if mode not in camera_processors:
             raise HTTPException(status_code=404, detail="Camera not found")
         camera_processor = camera_processors[mode]
 
+    placeholder_frame = cv2.imencode(
+        ".jpg", cv2.putText(
+            np.zeros((480, 640, 3), dtype=np.uint8),
+            "Waiting for frames...",
+            (50, 240),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 255),
+            2
+        )
+    )[1].tobytes()
+
     async def generate():
+        last_frame = None  # Store the last frame
         while True:
             frame = camera_processor.latest_frame
             if frame is None:
-                await asyncio.sleep(0.1)  # Wait a bit before trying again
+                # Send placeholder frame if no frame is available
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n"
+                    + placeholder_frame + b"\r\n"
+                )
+                await asyncio.sleep(0.1)  # Retry after delay
                 continue
 
-            ret, buffer = cv2.imencode(".jpg", frame)
-            if not ret:
-                await asyncio.sleep(0.1)  # Wait a bit before trying again
-                continue
+            # Check if the frame has changed since the last one using np.array_equal
+            if last_frame is None or not np.array_equal(frame, last_frame):
+                ret, buffer = cv2.imencode(".jpg", frame)
+                if not ret:
+                    # Handle frame encoding failure gracefully
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n"
+                        + placeholder_frame + b"\r\n"
+                    )
+                    await asyncio.sleep(0.1)
+                    continue
 
-            frame_bytes = buffer.tobytes()
-
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
-            )
-            await asyncio.sleep(0.01)  # Adjust the interval as needed
+                # Send the actual frame if it's different from the last one
+                frame_bytes = buffer.tobytes()
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n"
+                    + frame_bytes + b"\r\n"
+                )
+                last_frame = frame  # Update last frame
+            await asyncio.sleep(0.01)  # Adjust for performance if necessary
 
     return StreamingResponse(
         generate(), media_type="multipart/x-mixed-replace; boundary=frame"

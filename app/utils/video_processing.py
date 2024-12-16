@@ -35,9 +35,11 @@ class CameraManager:
                         pylon.FeaturePersistence.Load(pfs_file, camera.GetNodeMap(), True)
                         log_print(f"{side.capitalize()} camera settings loaded from {pfs_file}.")
                     except Exception as e:
-                        log_bug(f"{side.capitalize()} camera: Failed to load PFS file {pfs_file}. Exception: {e}")
+                        error_code=1006
+                        log_bug(f"{side.capitalize()} camera: Failed to load PFS file {pfs_file}. Exception: {e}(Error Code: {error_code})")
                 else:
-                    log_bug(f"{side.capitalize()} camera: PFS file {pfs_file} not found.")
+                    error_code=1007
+                    log_bug(f"{side.capitalize()} camera: PFS file {pfs_file} not found.(Error Code: {error_code})  ")
 
                 # If right camera depends on left camera:
                 if side == 'right' and 'left' in self.cameras:
@@ -60,7 +62,8 @@ class CameraManager:
                 break
 
             except Exception as e:
-                log_bug(f"{side.capitalize()} camera: Video capture initialization failed. Exception: {e}")
+                error_code=1008
+                log_bug(f"{side.capitalize()} camera: Video capture initialization failed. Exception: {e}(Error Code: {error_code})")
                 log_print(f"Retrying {side} camera connection in 5 seconds...")
                 time.sleep(5)
 
@@ -73,7 +76,8 @@ class CameraManager:
                     camera.Close()
                     log_print(f"{side.capitalize()} camera: Video capture released.")
             except Exception as e:
-                log_bug(f"{side.capitalize()} camera: Failed to release video resources. Exception: {e}")
+                error_code=1009
+                log_bug(f"{side.capitalize()} camera: Failed to release video resources. Exception: {e}(Error Code: {error_code})")
 
         cv2.destroyAllWindows()
         log_print("All OpenCV windows destroyed.")
@@ -81,7 +85,8 @@ class CameraManager:
 
     def get_frame(self, side):
         if side not in self.cameras:
-            log_bug(f"{side.capitalize()} camera: Video capture not initialized.")
+            error_code=1010
+            log_bug(f"{side.capitalize()} camera: Video capture not initialized.(Error Code: {error_code})")
             return None
 
         camera = self.cameras[side]['camera']
@@ -97,11 +102,14 @@ class CameraManager:
                     return frame
                 else:
                     grab_result.Release()
-                    log_bug(f"{side.capitalize()} camera: Failed to capture frame.")
+                    error_code=1011
+                    log_bug(f"{side.capitalize()} camera: Failed to capture frame.(Error code: {error_code})")
                     return None
             except pylon.TimeoutException:
-                log_bug(f"{side.capitalize()} camera: Frame retrieval timed out.")
+                error_code=1012
+                log_bug(f"{side.capitalize()} camera: Frame retrieval timed out.(Error code: {error_code})")
                 return None
         else:
-            log_bug(f"{side.capitalize()} camera: Not grabbing frames.")
+            error_code=1013
+            log_bug(f"{side.capitalize()} camera: Not grabbing frames.(Error code: {error_code})")
             return None

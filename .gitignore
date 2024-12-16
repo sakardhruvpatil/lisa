@@ -10,6 +10,8 @@ static/.pnp
 static/.pnp.js
 static/server/node_modules
 
+dist
+
 # testing
 static/coverage/
 

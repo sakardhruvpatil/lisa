@@ -17,24 +17,26 @@ const App = () => {
 	const [cameraLayout, setCameraLayout] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Initialize with mode from localStorage
 	const [mode, setMode] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Default to 'vertical'  
 	const [acceptanceRate, setAcceptanceRate] = useState(null); // Default acceptance rate
+	const [speed, setSpeed] = useState(0); // State to store the current speed
+	const [loadingSpeed, setLoadingSpeed] = useState(true); // Loading state for speed
 	const [screenResolution, setScreenResolution] = useState({
 		width: window.innerWidth,
 		height: window.innerHeight,
 	});
 
-    useEffect(() => {
-        const handleResize = () => {
-            setScreenResolution({
-                width: window.innerWidth,
-                height: window.innerHeight,
-            });
-        };
+	useEffect(() => {
+		const handleResize = () => {
+			setScreenResolution({
+				width: window.innerWidth,
+				height: window.innerHeight,
+			});
+		};
 
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
 
-    // Fetch the current threshold from the backend
+	// Fetch the current threshold from the backend
 	const fetchCurrentThreshold = useCallback(async () => {
 		try {
 			const response = await fetch(`http://localhost:8000/get_current_threshold/${mode}`);
@@ -50,28 +52,27 @@ const App = () => {
 		}
 	}, [mode]);
 
-    useEffect(() => {
-        const savedMode = localStorage.getItem('cameraMode') || 'vertical';
-        setMode(savedMode);
-        setCameraLayout(savedMode); // Adjust layout based on saved mode
-        fetchCurrentThreshold(); // Fetch threshold on initial load
-    }, [fetchCurrentThreshold]);
+	useEffect(() => {
+		const savedMode = localStorage.getItem('cameraMode') || 'vertical';
+		setMode(savedMode);
+		setCameraLayout(savedMode); // Adjust layout based on saved mode
+		fetchCurrentThreshold(); // Fetch threshold on initial load
+	}, [fetchCurrentThreshold]);
 
-    useEffect(() => {
-        if (mode === 'horizontal') {
-            setCameraLayout('horizontal');
-        } else if (mode === 'vertical') {
-            setCameraLayout('vertical');
-        }
-        fetchCurrentThreshold(); // Fetch threshold whenever mode changes
-    }, [mode, fetchCurrentThreshold]);
+	useEffect(() => {
+		if (mode === 'horizontal') {
+			setCameraLayout('horizontal');
+		} else if (mode === 'vertical') {
+			setCameraLayout('vertical');
+		}
+		fetchCurrentThreshold(); // Fetch threshold whenever mode changes
+	}, [mode, fetchCurrentThreshold]);
 
-    // Handle mode change and update layout accordingly
-    const handleModeChange = (newMode) => {
-        setMode(newMode);
-        localStorage.setItem('cameraMode', newMode); // Save the mode to localStorage
-        setCameraLayout(newMode === 'vertical' ? 'horizontal' : 'vertical'); // Ensure layout reflects the mode
-    };
+	// Handle mode change and update layout accordingly
+	const handleModeChange = (newMode) => {
+		setMode(newMode);
+		setCameraLayout(newMode === 'vertical' ? 'horizontal' : 'vertical'); // Ensure layout reflects the mode
+	};
 
 
 	return (
@@ -171,7 +172,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 		let wsLeft;
 		let wsRight;
 		let wsHorizontal;
-	
+
 		const connectWebSocketLeft = () => {
 			wsLeft = new WebSocket('ws://localhost:8000/ws/todays_counts/left');
 			wsLeft.onmessage = (event) => {
@@ -186,7 +187,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				setTimeout(connectWebSocketLeft, 5000);
 			};
 		};
-	
+
 		const connectWebSocketRight = () => {
 			wsRight = new WebSocket('ws://localhost:8000/ws/todays_counts/right');
 			wsRight.onmessage = (event) => {
@@ -201,7 +202,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				setTimeout(connectWebSocketRight, 5000);
 			};
 		};
-	
+
 		const connectWebSocketHorizontal = () => {
 			wsHorizontal = new WebSocket('ws://localhost:8000/ws/todays_counts/horizontal');
 			wsHorizontal.onmessage = (event) => {
@@ -216,7 +217,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 				setTimeout(connectWebSocketHorizontal, 5000);
 			};
 		};
-	
+
 		// Connect to the appropriate WebSocket based on the mode
 		if (mode === 'vertical') {
 			connectWebSocketLeft();
@@ -224,7 +225,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 		} else if (mode === 'horizontal') {
 			connectWebSocketHorizontal();
 		}
-	
+
 		// Cleanup function to close WebSocket connections
 		return () => {
 			if (wsLeft) wsLeft.close();
@@ -241,7 +242,25 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 		return () => clearInterval(timer);
 	}, []);
 
-	// Function to change conveyor speed
+	// Fetch the last logged speed from the server on startup
+	useEffect(() => {
+		const fetchSpeed = async () => {
+			try {
+				const response = await fetch('http://localhost:5007/get-speed');
+				if (!response.ok) {
+					throw new Error('Failed to fetch speed');
+				}
+				const data = await response.json();
+				setSpeed(data.speed); // Set the speed to the fetched value
+				setLoadingSpeed(false); // Set loading to false once speed is fetched
+			} catch (error) {
+				console.error('Error fetching speed:', error);
+				setLoadingSpeed(false); // Set loading to false even in case of error
+			}
+		};
+		fetchSpeed(); // Fetch speed when the component mounts
+	}, []);
+
 	const changeSpeed = async (action) => {
 		try {
 			const response = await fetch('http://localhost:5007/change-speed', {
@@ -251,7 +270,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 			});
 			if (!response.ok) throw new Error('Failed to change speed');
 			const data = await response.json();
-			setSpeed(data.new_speed); // Assuming response has 'new_speed' field
+			setSpeed(data.new_speed); // Update the speed from the server response
 		} catch (error) {
 			console.error('Error:', error);
 			alert('Failed to change speed: ' + error.message);
@@ -360,6 +379,7 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
 			<div className="controls-container" style={{ marginTop: '50px' }}>
 				<div className="controls">
 					<button onClick={() => changeSpeed('decrease')}>-</button>
+					{/* Display the current speed */}
 					<p className="speed-display">{speed}</p>
 					<button onClick={() => changeSpeed('increase')}>+</button>
 				</div>

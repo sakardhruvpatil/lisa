@@ -20,7 +20,8 @@ def load_model(model_path, model_name):
         log_print(f"{model_name} model loaded successfully.")
         return model
     except Exception as e:
-        log_bug(f"Failed to load {model_name} model from {model_path}. Exception: {e}")
+        error_code = 1005  # error code
+        log_bug(f"Failed to load {model_name} model from {model_path}. Exception: {e}(Error Code: {error_code})")
         log_print(f"{model_name} model not loaded. Detection will be skipped.")
         return None
 
