@@ -49,7 +49,7 @@
 		"files": [
 			"build/**/*",
 			"node_modules/**/*",
-			"server/**/*", 
+			"server/**/*",
 			"electron.js",
 			{
 				"from": "../app",
@@ -59,7 +59,7 @@
 				]
 			}
 		],
-		"asar": false, 
+		"asar": false,
 		"extraMetadata": {
 			"main": "electron.js"
 		},

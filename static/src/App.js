@@ -71,6 +71,7 @@ const App = () => {
 	// Handle mode change and update layout accordingly
 	const handleModeChange = (newMode) => {
 		setMode(newMode);
+		localStorage.setItem('cameraMode', newMode); // Save the mode to localStorage
 		setCameraLayout(newMode === 'vertical' ? 'horizontal' : 'vertical'); // Ensure layout reflects the mode
 	};
 

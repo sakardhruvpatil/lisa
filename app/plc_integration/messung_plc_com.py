@@ -47,10 +47,11 @@ def write_signal_to_file(filename, value):
     with open(filepath, 'w') as f:
         f.write(str(value))  # Write '0' or '1' to the file
 
-def read_current_speed(log_filepath):
+def read_current_speed(logFilePath, log_file):
     """Reads the current speed from the log file."""
+    logFilePath = os.path.join(LOG_DIR, log_file)
     try:
-        with open(log_filepath, "r") as log_file:
+        with open(logFilePath, "r") as log_file:
             lines = log_file.readlines()
             last_line = lines[-1] if lines else None
             if last_line and "Current Speed:" in last_line:
@@ -67,7 +68,9 @@ def write_registers(signal_code1, signal_code2, current_speed):
     if signal_code2 is not None:
         client.write_register(1, int(signal_code2))  # Ensure it's an integer
     if current_speed is not None:
-        client.write_register(2, int(current_speed))  # Example: writing to register 2 for speed
+        client.write_register(
+            1, int(current_speed)
+        )  # Example: writing to register 2 for speed
 
 # Main execution
 if connect_modbus():
@@ -81,17 +84,20 @@ if connect_modbus():
             # Write the read values to the Modbus registers
             write_registers(signal_code1, signal_code2, current_speed)
 
+            # If signal is 1, overwrite the file with 0 after 1 second
+            if signal_code1 == "1":
+                time.sleep(1)  # Wait for 1 second before updating the file
+                write_signal_to_file(
+                    "/home/dp/LISA_LOGS/decision_left.txt", 0
+                )  # Overwrite with 0
+            if signal_code2 == "1":
+                time.sleep(1)  # Wait for 1 second before updating the file
+                write_signal_to_file(
+                    "/home/dp/LISA_LOGS/decision_right.txt", 0
+                )  # Overwrite with 0
+
             # Add a delay to avoid overloading the system
             time.sleep(1)  # Sleep for 1 second (adjust as necessary)
-
-            # If signal is 1, overwrite the file with 0 after 1 second
-            if signal_code1 == 1 or signal_code2 == 1:
-                if signal_code1 == 1:
-                    write_signal_to_file('decision_left.txt', 0)  # Overwrite with 0
-                    log_print("Updated decision_left.txt to 0 after 1 second.")
-                if signal_code2 == 1:
-                    write_signal_to_file('decision_right.txt', 0)  # Overwrite with 0
-                    log_print("Updated decision_right.txt to 0 after 1 second.")
 
             # Check if the connection is still alive, if not, reconnect
             if not client.is_socket_open():
