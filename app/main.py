@@ -163,8 +163,9 @@ class CameraProcessor:
     def process_frame(self, img):
         # Process each side independently
         height, width, _ = img.shape
-        cropped_img = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
-        self.detect(cropped_img)
+        #cropped = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
+        #print(f"Cropped image shape: {img.shape}")  # Log the shape
+        self.detect(img)
 
 
     # Replace the existing write_decision_to_file method with the one below:
@@ -205,6 +206,7 @@ class CameraProcessor:
                 f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape}(Error code: {error_code})"
             )
             return
+        
         # Get video properties
         original_height, original_width = frame.shape[:2]
         frame_resized = frame
@@ -322,6 +324,8 @@ class CameraProcessor:
                             f"{self.side} camera: Defect detection skipped. Model not loaded."
                         )
 
+                    class_names = ['defect', 'tear']
+
                     if defect_results and (self.state == State.TRACKING_SCANNING):
                         # Count defects only within the bedsheet region
                         for defect_result in defect_results:
@@ -343,6 +347,43 @@ class CameraProcessor:
 
                                     # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
+
+                                    # Get the class name for the current defect
+                                    class_name = class_names[int(defect_id)]  # Convert ID to class name
+
+                                    # Check for tear detection
+                                    if class_name == 'tear':
+                                        self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                        log_print(
+                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to detected tear."
+                                        )
+                                        self.write_decision_to_file(REJECT)
+                                        decision = "Rejected"
+                                        log_to_mongo(
+                                            self.collection,
+                                            self.bedsheet_count + 1,
+                                            100,  # You can adjust this value as needed
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        update_history(
+                                            self.history_collection,
+                                            get_current_date_str(),
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        log_print(
+                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean' due to tear."
+                                        )
+                                        self.bedsheet_count += 1
+                                        self.reset_defect_tracking_variables()
+
+                                        # Transition to IDLE after logging
+                                        self.state = State.IDLE
+                                        log_print(
+                                            f"{self.side} camera: Transitioned to IDLE after rejection due to detected tear."
+                                        )
+                                        break  # Exit further processing for this frame
 
                                     # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
@@ -811,7 +852,7 @@ class StitchedCameraProcessor:
             left_frame_resized = cv2.resize(left_frame, (640, 480))
             right_frame_resized = cv2.resize(right_frame, (640, 480))
             stitched_frame = np.concatenate(
-                [left_frame, right_frame], axis=1
+                [left_frame_resized, right_frame_resized], axis=1
             )
             return stitched_frame
         except Exception as e:
@@ -966,6 +1007,8 @@ class StitchedCameraProcessor:
                         defect_results = None  # Ensure defect_results is defined
                         log_print("Defect detection skipped. Model not loaded.")
 
+                    class_names = ['defect', 'tear']
+
                     if defect_results and (self.state == State.TRACKING_SCANNING):
                         # Count defects only within the bedsheet region
                         for defect_result in defect_results:
@@ -987,6 +1030,44 @@ class StitchedCameraProcessor:
 
                                     # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
+
+                                    # Get the class name for the current defect
+                                    class_name = class_names[int(defect_id)]  # Convert ID to class name
+
+                                    # Check for tear detection
+                                    if class_name == 'tear':
+                                        self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                        log_print(
+                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to detected tear."
+                                        )
+                                        self.write_decision_to_file(REJECT)
+                                        decision = "Rejected"
+                                        log_to_mongo(
+                                            self.collection,
+                                            self.bedsheet_count + 1,
+                                            100,  # You can adjust this value as needed
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        update_history(
+                                            self.history_collection,
+                                            get_current_date_str(),
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        log_print(
+                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean' due to tear."
+                                        )
+                                        self.bedsheet_count += 1
+                                        self.reset_defect_tracking_variables()
+
+                                        # Transition to IDLE after logging
+                                        self.state = State.IDLE
+                                        log_print(
+                                            f"{self.side} camera: Transitioned to IDLE after rejection due to detected tear."
+                                        )
+                                        break  # Exit further processing for this frame
+
 
                                     # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
