@@ -166,29 +166,29 @@ class CameraProcessor:
         cropped_img = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
         self.detect(cropped_img)
 
+
     # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
         """
-        Write the decision to both "decision_left.txt" and "decision_right.txt"
-        in a directory outside the AppImage, ensuring it is writable.
+        Write the decision to the specific decision file for the camera (left or right).
         Uses ACCEPT and REJECT from config.
         """
         # Define the writable directory for bug logs
         log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
         os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
-
+    
         # Determine the decision value from config
         decision_value = REJECT if decision == REJECT else ACCEPT
-
-        for side in ["left", "right"]:
-            decision_file = os.path.join(log_dir, f"decision_{side}.txt")
-            try:
-                # Write the decision to the file
-                with open(decision_file, "w") as file:
-                    file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
-                print(f"Decision for {side} camera written to {decision_file}.")
-            except Exception as e:
-                print(f"Failed to write decision for {side} camera: {e}")
+    
+        # Determine the decision file based on the camera side
+        decision_file = os.path.join(log_dir, f"decision_{self.side}.txt")
+        try:
+            # Write the decision to the file
+            with open(decision_file, "w") as file:
+                file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
+            print(f"Decision for {self.side} camera written to {decision_file}.")
+        except Exception as e:
+            print(f"Failed to write decision for {self.side} camera: {e}")
 
     def detect(self, frame):
         global CLEAN_THRESHOLD  # Access the global variable
@@ -700,7 +700,7 @@ class CameraProcessor:
 
             except Exception as e:
                 self.defect_tracking_error = True
-                error_code:1017
+                error_code=1017
                 log_bug(
                     f"{self.side} camera: Error during detect processing. Exception: {e}(Error code: {error_code})"
                 )        
@@ -803,7 +803,7 @@ class StitchedCameraProcessor:
                     time.sleep(0.1)  # Sleep to avoid busy waiting
             except Exception as e:
                 error_code=1018
-                log_bug(f"Error in stitched camera processing: {e}(Error code: {error_code})")
+                log_print(f"Error in stitched camera processing: {e}(Error code: {error_code})")
 
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
@@ -811,7 +811,7 @@ class StitchedCameraProcessor:
             left_frame_resized = cv2.resize(left_frame, (640, 480))
             right_frame_resized = cv2.resize(right_frame, (640, 480))
             stitched_frame = np.concatenate(
-                [left_frame_resized, right_frame_resized], axis=1
+                [left_frame, right_frame], axis=1
             )
             return stitched_frame
         except Exception as e:

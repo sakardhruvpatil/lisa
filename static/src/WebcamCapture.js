@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const WebcamCapture = ({ mode, cameraLayout }) => {
     const isHorizontalMode = mode === 'horizontal'; // Check if in horizontal mode
-    const [activeFeed, setActiveFeed] = useState(null); // Start with null to indicate no active feed yet
+    const [activeFeed, setActiveFeed] = useState('left'); // Start with null to indicate no active feed yet
 
     // Ref to store the interval id
-    const intervalRef = useRef(null);
+    const intervalRef = useRef('left');
 
     // Function to fetch the active feed from the backend
     const fetchActiveFeed = async () => {

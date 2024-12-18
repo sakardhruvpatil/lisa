@@ -47,26 +47,36 @@ def write_signal_to_file(filename, value):
     with open(filepath, 'w') as f:
         f.write(str(value))  # Write '0' or '1' to the file
 
-def read_current_speed(logFilePath, log_file):
+def read_current_speed(logFilePath, log_file_name):
     """Reads the current speed from the log file."""
-    logFilePath = os.path.join(LOG_DIR, log_file)
+    logFilePath = os.path.join(LOG_DIR, log_file_name)
     try:
-        with open(logFilePath, "r") as log_file:
-            lines = log_file.readlines()
+        with open(logFilePath, "r") as file:
+            lines = file.readlines()
             last_line = lines[-1] if lines else None
             if last_line and "Current Speed:" in last_line:
-                return int(last_line.split(":")[1].strip())
+                try:
+                    speed = int(last_line.split(":")[1].strip())
+                    return speed
+                except ValueError:
+                    error_code = 1024
+                    log_bug(f"Error parsing speed from line '{last_line}'. (Error code: {error_code})")
+                    return None
+            else:
+                error_code = 1025
+                log_bug(f"Last line in {logFilePath} does not contain 'Current Speed:'. (Error code: {error_code})")
     except Exception as e:
-        error_code=1021
-        log_bug(f"Error reading from log.txt: {e}(Error code: {error_code})")
+        error_code = 1021
+        log_bug(f"Error reading from {logFilePath}: {e}. (Error code: {error_code})")
     return None
+
 
 def write_registers(signal_code1, signal_code2, current_speed):
     """Writes signal codes and current speed to the Modbus registers."""
     if signal_code1 is not None:
         client.write_register(0, int(signal_code1))  # Ensure it's an integer
     if signal_code2 is not None:
-        client.write_register(1, int(signal_code2))  # Ensure it's an integer
+        client.write_register(2, int(signal_code2))  # Ensure it's an integer
     if current_speed is not None:
         client.write_register(
             1, int(current_speed)
@@ -79,21 +89,21 @@ if connect_modbus():
             # Read signals and current speed
             signal_code1 = read_signal_from_file('decision_left.txt')
             signal_code2 = read_signal_from_file('decision_right.txt')
-            current_speed = read_current_speed("log.txt")
+            current_speed = read_current_speed(LOG_DIR, 'log.txt')
             
             # Write the read values to the Modbus registers
             write_registers(signal_code1, signal_code2, current_speed)
 
             # If signal is 1, overwrite the file with 0 after 1 second
-            if signal_code1 == "1":
+            if signal_code1 == 1:
                 time.sleep(1)  # Wait for 1 second before updating the file
                 write_signal_to_file(
-                    "/home/dp/LISA_LOGS/decision_left.txt", 0
+                    "decision_left.txt", 0
                 )  # Overwrite with 0
-            if signal_code2 == "1":
+            if signal_code2 == 1:
                 time.sleep(1)  # Wait for 1 second before updating the file
                 write_signal_to_file(
-                    "/home/dp/LISA_LOGS/decision_right.txt", 0
+                    "decision_right.txt", 0
                 )  # Overwrite with 0
 
             # Add a delay to avoid overloading the system
