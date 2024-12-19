@@ -107,6 +107,8 @@ const App = () => {
 									mode={mode}
 									acceptanceRate={acceptanceRate}
 									cameraLayout={cameraLayout}
+									setLoadingSpeed={setLoadingSpeed} // Pass the function
+									loadingSpeed={loadingSpeed} // Pass the loading state				 
 								/>
 							}
 						/>
@@ -145,7 +147,7 @@ const App = () => {
 
 
 // Component for the Home page with webcam controls
-const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout }) => {
+const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout, setLoadingSpeed, loadingSpeed  }) => {
 	const [speed, setSpeed] = useState(0);
 	const [currentTime, setCurrentTime] = useState(new Date());
 

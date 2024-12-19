@@ -1,5 +1,3 @@
-// Settings.js
-
 import React, { useState, useEffect } from 'react';
 
 const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
@@ -10,18 +8,14 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		setLocalAcceptanceRate(acceptanceRate);
 	}, [acceptanceRate]);
 
-	// Function to handle slider changes
 	const handleSliderChange = (e) => {
 		const newValue = parseInt(e.target.value, 10);
 		setLocalAcceptanceRate(newValue);
-		// Do not update acceptanceRate or send to backend yet
 	};
 
-	// Function to save the threshold change
 	const handleSaveThreshold = async () => {
-		setAcceptanceRate(localAcceptanceRate); // Update acceptance rate in App component
+		setAcceptanceRate(localAcceptanceRate);
 
-		// Send threshold update to backend
 		try {
 			const response = await fetch('http://localhost:8000/update_threshold', {
 				method: 'POST',
@@ -36,14 +30,12 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		}
 	};
 
-	// Function to change mode and notify backend
 	const handleModeChange = async (mode) => {
-		console.log(`Changing mode to ${mode}`);
 		setMode(mode);
-		localStorage.setItem('cameraLayout', mode); // Persist the mode in localStorage
+		localStorage.setItem('cameraLayout', mode);
 		try {
 			const response = await fetch(
-				'http://localhost:8000/set_process_mode/' + mode,
+				`http://localhost:8000/set_process_mode/${mode}`,
 				{ method: 'GET' }
 			);
 			const result = await response.json();
@@ -51,13 +43,69 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 		} catch (error) {
 			console.error('Error updating mode:', error);
 		}
-	};	
+	};
+
+	// Function to send a signal to open the left shut
+	const handleOpenLeft = async () => {
+		console.log('Open Left button pressed');
+		try {
+			// Send "1" signal to backend
+			await fetch('http://localhost:8000/open_left', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ signal: 1 }),
+			});
+
+			console.log('Left shut activated');
+
+			// Wait for 11 seconds
+			setTimeout(async () => {
+				// Send "0" signal to backend
+				await fetch('http://localhost:8000/open_left', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ signal: 0 }),
+				});
+				console.log('Left shut deactivated');
+			}, 11000);
+		} catch (error) {
+			console.error('Error sending Open Left signal:', error);
+		}
+	};
+
+	// Function to send a signal to open the right shut
+	const handleOpenRight = async () => {
+		console.log('Open Right button pressed');
+		try {
+			// Send "1" signal to backend
+			await fetch('http://localhost:8000/open_right', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ signal: 1 }),
+			});
+
+			console.log('Right shut activated');
+
+			// Wait for 11 seconds
+			setTimeout(async () => {
+				// Send "0" signal to backend
+				await fetch('http://localhost:8000/open_right', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ signal: 0 }),
+				});
+				console.log('Right shut deactivated');
+			}, 11000);
+		} catch (error) {
+			console.error('Error sending Open Right signal:', error);
+		}
+	};
 
 	return (
 		<div className="settings-container" style={{ marginBottom: '60px', fontSize: '48px', fontWeight: 'bold' }}>
 			<label>Settings</label>
 
-			<div className="mode-selection" style={{ marginTop: '40px'}}>
+			<div className="mode-selection" style={{ marginTop: '40px' }}>
 				<button onClick={() => handleModeChange('horizontal')}>Horizontal</button>
 				<button onClick={() => handleModeChange('vertical')}>Vertical</button>
 			</div>
@@ -72,12 +120,12 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 						value={localAcceptanceRate}
 						onChange={handleSliderChange}
 						style={{
-							width: '33vw', // Width of the slider
-							height: '25px', // Height of the slider (this affects the thumb size)
-							background: '#ddd', // Background color of the track
-							borderRadius: '5px', // Rounded corners
-							outline: 'none', // Remove outline
-							cursor: 'pointer' // Pointer cursor on hover
+							width: '33vw',
+							height: '25px',
+							background: '#ddd',
+							borderRadius: '5px',
+							outline: 'none',
+							cursor: 'pointer',
 						}}
 					/>
 					<div className="acceptance-rate-value" style={{ marginTop: '20px' }}>{localAcceptanceRate}%</div>
@@ -85,6 +133,11 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 				<button className="save-button" style={{ marginTop: '20px' }} onClick={handleSaveThreshold}>
 					Save
 				</button>
+			</div>
+
+			<div className="additional-controls" style={{ marginTop: '50px' }}>
+				<button onClick={handleOpenLeft}>Open Left</button>
+				<button style={{ marginLeft: '20px' }} onClick={handleOpenRight}>Open Right</button>
 			</div>
 		</div>
 	);
