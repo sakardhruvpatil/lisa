@@ -54,17 +54,17 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ signal: 1 }), // Send signal as 1
 			});
-	
+
 			if (!response.ok) {
 				throw new Error('Failed to activate left chute');
 			}
-	
+
 			console.log('Left chute activated');
 		} catch (error) {
 			console.error('Error sending Open Left signal:', error);
 		}
 	};
-	
+
 	const handleOpenRight = async () => {
 		console.log('Open Right button pressed');
 		try {
@@ -73,16 +73,36 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ signal: 1 }), // Send signal as 1
 			});
-	
+
 			if (!response.ok) {
 				throw new Error('Failed to activate right chute');
 			}
-	
+
 			console.log('Right chute activated');
 		} catch (error) {
 			console.error('Error sending Open Right signal:', error);
 		}
 	};
+
+	const handleOpenBoth = async () => {
+		console.log('Open Both button pressed');
+		try {
+			const response = await fetch('http://localhost:5007/open_both', { // Ensure the port is correct
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ signal: 1 }), // Send signal as 1
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to activate both chute');
+			}
+
+			console.log('Both chute activated');
+		} catch (error) {
+			console.error('Error sending Open both signal:', error);
+		}
+	};
+
 
 	return (
 		<div className="settings-container" style={{ marginBottom: '60px', fontSize: '48px', fontWeight: 'bold' }}>
@@ -118,9 +138,25 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 				</button>
 			</div>
 
-			<div className="additional-controls" style={{ marginTop: '80px' }}>
-				<button onClick={handleOpenLeft}>Open Left</button>
-				<button style={{ marginLeft: '20px' }} onClick={handleOpenRight}>Open Right</button>
+			{/* Updated layout for "Open Left", "Open Right", and "Open Both" */}
+			<div
+				className="additional-controls"
+				style={{
+					marginTop: '60px',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'center',
+				}}
+			>
+				<div style={{ display: 'flex', justifyContent: 'center' }}>
+					<button onClick={handleOpenLeft}>Open Left</button>
+					<button style={{ marginLeft: '40px' }} onClick={handleOpenRight}>
+						Open Right
+					</button>
+				</div>
+				<button style={{ marginTop: '40px' }} onClick={handleOpenBoth}>
+					Open Both
+				</button>
 			</div>
 		</div>
 	);

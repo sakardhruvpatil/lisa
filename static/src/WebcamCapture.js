@@ -51,6 +51,7 @@ const WebcamCapture = ({ mode, cameraLayout }) => {
             {activeFeed ? (
                 isHorizontalMode ? (
                     <div style={{ width: '100%', margin: '5px' }}>
+                        <h2 style={{ textAlign: 'center' }}>Horizontal Camera Feed</h2>
                         <img
                             src={videoSrcHorizontal}
                             alt="Horizontal Video Stream"
@@ -78,6 +79,7 @@ const WebcamCapture = ({ mode, cameraLayout }) => {
                                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
                             }}
                         >
+                            <h2 style={{ textAlign: 'center' }}>Left Camera Feed</h2>
                             <img
                                 src={videoSrcLeft}
                                 alt="Left Video Stream"
@@ -103,6 +105,7 @@ const WebcamCapture = ({ mode, cameraLayout }) => {
                                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
                             }}
                         >
+                            <h2 style={{ textAlign: 'center' }}>Right Camera Feed</h2>
                             <img
                                 src={videoSrcRight}
                                 alt="Right Video Stream"

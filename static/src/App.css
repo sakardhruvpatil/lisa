@@ -449,8 +449,30 @@ button:hover {
 
 }
 
+speed-button {
+    display: inline-block;
+    padding: 10px 15px;
+    text-align: center;
+    font-size: 60px;
+    margin-left: 40px;
+    margin-top: 100px;
+    cursor: pointer;
+    border: none;
+    border-radius: 20px;
+    background-color: #fc981e;
+    color: white;
+    margin: 0 30px;
+    transition: background-color 0.3s;
+    width: 60px; /* Increase this value as needed */
+}
+
+speed-button:hover {
+    background-color: #fc981e;
+
+}
+
 .speed-display {
-    font-size: 30px;
+    font-size: 50px;
     margin: 0 20px;
 }
 
@@ -459,7 +481,7 @@ button:hover {
     text-align: center;
     margin-top: 5px;
 
-    font-size: 22px;
+    font-size: 28px;
     font-weight: bold;
     color: #333;
 }

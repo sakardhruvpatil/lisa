@@ -130,6 +130,28 @@ app.post('/open_right', async (req, res) => {
     }
 });
 
+// Endpoint to open both shutters
+app.post('/open_both', async (req, res) => {
+    const { signal } = req.body;
+    const decisionLeftFilePath = path.join(LOGS_DIR, 'decision_left.txt');
+    const decisionRightFilePath = path.join(LOGS_DIR, 'decision_right.txt');
+
+    console.log(`Received signal for both shutters: ${signal}`);
+
+    try {
+        // Write the same signal to both files
+        await writeFile(decisionLeftFilePath, signal.toString());
+        await writeFile(decisionRightFilePath, signal.toString());
+
+        console.log(`Both shutters decisions written: ${signal}`);
+        res.json({ message: 'Both shutters decisions recorded' });
+    } catch (error) {
+        console.error('Error writing to decision files:', error);
+        res.status(500).json({ error: 'Failed to write to decision files for both shutters' });
+    }
+});
+
+
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });

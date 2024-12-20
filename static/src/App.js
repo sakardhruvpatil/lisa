@@ -381,10 +381,10 @@ const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout, setLoadingSpeed, l
 			{/* Centered Controls */}
 			<div className="controls-container" style={{ marginTop: '50px' }}>
 				<div className="controls">
-					<button onClick={() => changeSpeed('decrease')}>-</button>
+					<speed-button onClick={() => changeSpeed('decrease')}>-</speed-button>
 					{/* Display the current speed */}
 					<p className="speed-display">{speed}</p>
-					<button onClick={() => changeSpeed('increase')}>+</button>
+					<speed-button onClick={() => changeSpeed('increase')}>+</speed-button>
 				</div>
 				<div className="speed-button-label">
 					<p>Conveyor Speed</p>
