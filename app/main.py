@@ -324,7 +324,7 @@ class CameraProcessor:
                             f"{self.side} camera: Defect detection skipped. Model not loaded."
                         )
 
-                    class_names = ['defect', 'tear']
+                    class_names = ['defect', 'tear']  # Ensure this matches your model's classes
 
                     if defect_results and (self.state == State.TRACKING_SCANNING):
                         # Count defects only within the bedsheet region
@@ -347,6 +347,7 @@ class CameraProcessor:
 
                                     # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
+
 
                                     # Get the class name for the current defect
                                     class_name = class_names[int(defect_id)]  # Convert ID to class name
@@ -434,7 +435,6 @@ class CameraProcessor:
                                             (0, 0, 255),
                                             1,
                                         )
-
 
                                     # Immediate rejection if dirty percentage exceeds 100%
                                     if defect_percent_real_time >= 100:
@@ -1067,7 +1067,6 @@ class StitchedCameraProcessor:
                                             f"{self.side} camera: Transitioned to IDLE after rejection due to detected tear."
                                         )
                                         break  # Exit further processing for this frame
-
 
                                     # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:

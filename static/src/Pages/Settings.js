@@ -49,53 +49,36 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 	const handleOpenLeft = async () => {
 		console.log('Open Left button pressed');
 		try {
-			// Send "1" signal to backend
-			await fetch('http://localhost:8000/open_left', {
+			const response = await fetch('http://localhost:5007/open_left', { // Ensure the port is correct
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ signal: 1 }),
+				body: JSON.stringify({ signal: 1 }), // Send signal as 1
 			});
-
-			console.log('Left shut activated');
-
-			// Wait for 11 seconds
-			setTimeout(async () => {
-				// Send "0" signal to backend
-				await fetch('http://localhost:8000/open_left', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ signal: 0 }),
-				});
-				console.log('Left shut deactivated');
-			}, 11000);
+	
+			if (!response.ok) {
+				throw new Error('Failed to activate left chute');
+			}
+	
+			console.log('Left chute activated');
 		} catch (error) {
 			console.error('Error sending Open Left signal:', error);
 		}
 	};
-
-	// Function to send a signal to open the right shut
+	
 	const handleOpenRight = async () => {
 		console.log('Open Right button pressed');
 		try {
-			// Send "1" signal to backend
-			await fetch('http://localhost:8000/open_right', {
+			const response = await fetch('http://localhost:5007/open_right', { // Ensure the port is correct
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ signal: 1 }),
+				body: JSON.stringify({ signal: 1 }), // Send signal as 1
 			});
-
-			console.log('Right shut activated');
-
-			// Wait for 11 seconds
-			setTimeout(async () => {
-				// Send "0" signal to backend
-				await fetch('http://localhost:8000/open_right', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ signal: 0 }),
-				});
-				console.log('Right shut deactivated');
-			}, 11000);
+	
+			if (!response.ok) {
+				throw new Error('Failed to activate right chute');
+			}
+	
+			console.log('Right chute activated');
 		} catch (error) {
 			console.error('Error sending Open Right signal:', error);
 		}
@@ -135,7 +118,7 @@ const Settings = ({ setMode, acceptanceRate, setAcceptanceRate }) => {
 				</button>
 			</div>
 
-			<div className="additional-controls" style={{ marginTop: '50px' }}>
+			<div className="additional-controls" style={{ marginTop: '80px' }}>
 				<button onClick={handleOpenLeft}>Open Left</button>
 				<button style={{ marginLeft: '20px' }} onClick={handleOpenRight}>Open Right</button>
 			</div>

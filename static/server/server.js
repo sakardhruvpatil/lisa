@@ -7,6 +7,7 @@ const path = require('path'); // Import path module for cross-platform compatibi
 const os = require('os'); // Import os module to get HOME directory
 const app = express();
 const PORT = 5007;
+const { writeFile } = require('fs/promises'); // Use promises for cleaner code
 
 app.use(cors());
 app.use(express.json());
@@ -93,6 +94,40 @@ app.post('/change-speed', (req, res) => {
 
     // Return the new speed as a JSON response
     res.json({ new_speed: currentSpeed });
+});
+
+// Endpoint to open the left shutter
+app.post('/open_left', async (req, res) => {
+    const { signal } = req.body;
+    const decisionFilePath = path.join(LOGS_DIR, 'decision_left.txt');
+
+    console.log(`Received signal for left shutter: ${signal}`); // Log the received signal
+
+    try {
+        await writeFile(decisionFilePath, signal.toString()); // Write the signal to the file
+        console.log(`Left shutter decision written: ${signal}`);
+        res.json({ message: 'Left shutter decision recorded' });
+    } catch (error) {
+        console.error('Error writing to decision_left.txt:', error);
+        res.status(500).json({ error: 'Failed to write to decision_left.txt' });
+    }
+});
+
+// Endpoint to open the right shutter
+app.post('/open_right', async (req, res) => {
+    const { signal } = req.body;
+    const decisionFilePath = path.join(LOGS_DIR, 'decision_right.txt');
+
+    console.log(`Received signal for right shutter: ${signal}`); // Log the received signal
+
+    try {
+        await writeFile(decisionFilePath, signal.toString()); // Write the signal to the file
+        console.log(`Right shutter decision written: ${signal}`);
+        res.json({ message: 'Right shutter decision recorded' });
+    } catch (error) {
+        console.error('Error writing to decision_right.txt:', error);
+        res.status(500).json({ error: 'Failed to write to decision_right.txt' });
+    }
 });
 
 app.listen(PORT, () => {
