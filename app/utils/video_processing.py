@@ -92,6 +92,11 @@ class CameraManager:
         camera = self.cameras[side]['camera']
         converter = self.cameras[side]['converter']
 
+        if not camera.IsOpen():  # If camera got disconnected
+            log_print(f"{side.capitalize()} camera: Reconnecting...")
+            self.reconnect_camera(side)
+            return None
+
         if camera.IsGrabbing():
             try:
                 grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
