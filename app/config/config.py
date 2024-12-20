@@ -21,7 +21,7 @@ def get_bug_log_file():
 
 # Video configuration
 
-DEFAULT_BEDSHEET_AREA = 70000  # Predefined bedsheet area in pixels
+DEFAULT_BEDSHEET_AREA = 50000  # Predefined bedsheet area in pixels
 CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
 
@@ -35,8 +35,10 @@ RIGHT_CAMERA_PFS =  os.path.join(BASE_DIR, "config/right_camera_config.pfs")
 
 
 # Model paths
-BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor.engine")
-DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect_hor.engine")
+BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11.engine")
+DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect.engine")
+HOR_BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor.engine")
+HOR_DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect_hor.engine")
 
 # Tracker path
 TRACKER_PATH = os.path.join(BASE_DIR, "models/botsort_defect.yaml")
@@ -47,7 +49,8 @@ DEFAULT_THRESHOLD = 95.0
 # Configuring Parameters for Accept/Reject decision
 ACCEPT = 0  # Can also be True, False, 1, or 0 as per your requirement
 REJECT = 1  # Can also be True, False, 1, or 0 as per your requirement
-
+START = 1
+STOP = 0
 # Date/Time configuration
 TIMEZONE = "Asia/Kolkata"
 
@@ -62,7 +65,7 @@ VIDEO_FPS = 25  # Default FPS if not available
 # Define the amount to crop from the left and right
 CROP_LEFT = 1  # Pixels to crop from the left
 CROP_RIGHT = 1  # Pixels to crop from the right
-CROP_TOP = 130  # Pixels to crop from the top
-CROP_BOTTOM = 130  # Pixels to crop from the bottom
+CROP_TOP = 1  # Pixels to crop from the top
+CROP_BOTTOM = 1  # Pixels to crop from the bottom
 
 

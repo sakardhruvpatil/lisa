@@ -3,8 +3,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 let win;
+let splashScreen;
 let backendProcess;
-let plcProcess; 
+let plcProcess;
 let serverProcess;
 
 // Function to start the backend (main.py)
@@ -166,6 +167,48 @@ function forceStopAllProcesses() {
     });
 }
 
+// Function to create the Splash Screen window
+function createSplashScreen() {
+    splashScreen = new BrowserWindow({
+        width: 1280,
+        height: 720,
+        fullscreen: true, // Make the splash screen fullscreen
+        kiosk: true,      // Enable kiosk mode
+        frame: false,
+        alwaysOnTop: true,
+        backgroundColor: '#ffffff', // White background
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        },
+    });
+
+    // Load the splash screen content
+    splashScreen.loadURL(`data:text/html;charset=utf-8,
+        <html>
+        <head>
+            <style>
+                body {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 170vh;
+                    margin: 0;
+                    background-color: white;
+                }
+                img {
+                    width: 100%;
+                    height: auto;
+                }
+            </style>
+        </head>
+        <body>
+            <img src="file://${path.resolve(__dirname, 'public', 'Sakar_Robotics.svg')}" alt="Loading...">
+        </body>
+        </html>
+    `, { baseURLForDataURL: `file://${__dirname}/` });
+}
+
 // Function to create the Electron window
 function createWindow() {
     win = new BrowserWindow({
@@ -173,9 +216,11 @@ function createWindow() {
         height: 720,
         fullscreen: true, // Ensure the window opens in fullscreen
         kiosk: true,      // Enable kiosk mode
+        alwaysOnTop: true,
         webPreferences: {
             nodeIntegration: true, // Allows Node.js features in the renderer process
             contextIsolation: false, // Disable context isolation for compatibility
+            preload: path.join(__dirname, 'src/preload.js'), // Include the preload script
         },
     });
 
@@ -209,6 +254,7 @@ function createWindow() {
 
 app.whenReady()
     .then(() => {
+        createSplashScreen(); // Create and show the splash screen
         startBackend();  // Start the main backend
         console.log('Backend started. Waiting 15 seconds before launching frontend...');
         return new Promise((resolve) => setTimeout(resolve, 15000)); // Wait for 15 seconds
@@ -225,6 +271,9 @@ app.whenReady()
     })
     .then(() => {
         createWindow();  // Create the Electron window
+        if (splashScreen) {
+            splashScreen.close(); // Close the splash screen
+        }
         // Register global shortcuts to disable specific keys (e.g., Alt+Tab)
         globalShortcut.register('Alt+Tab', () => {
             return false; // Prevents Alt+Tab
@@ -233,6 +282,30 @@ app.whenReady()
         globalShortcut.register('Ctrl+Shift+I', () => {
             return false; // Prevents opening developer tools
         });
+
+        // Additional global shortcuts to disable Win and Win+Tab
+        globalShortcut.register('CommandOrControl+Shift+I', () => {
+            return false; // Prevents opening developer tools
+        });
+
+        app.on('browser-window-focus', () => {
+            globalShortcut.register('CommandOrControl+W', () => {
+                return false; // Prevents closing the window with Ctrl+W
+            });
+        });
+
+        app.on('browser-window-blur', () => {
+            globalShortcut.unregister('CommandOrControl+W');
+        });
+
+        // Register global shortcuts to disable Win and Win+Tab
+        //globalShortcut.register('Super', () => {
+        //    return false; // Prevents Win key
+        //});
+
+        //globalShortcut.register('Super+Tab', () => {
+        //    return false; // Prevents Win+Tab
+        //});
 
         app.on('activate', () => {
             if (BrowserWindow.getAllWindows().length === 0) {
