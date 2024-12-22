@@ -192,18 +192,19 @@ function createSplashScreen() {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    height: 170vh;
+                    height: 100vh;
                     margin: 0;
                     background-color: white;
+                    overflow: hidden;
                 }
                 img {
-                    width: 100%;
+                    width: 70%;
                     height: auto;
                 }
             </style>
         </head>
         <body>
-            <img src="file://${path.resolve(__dirname, 'public', 'Sakar_Robotics.svg')}" alt="Loading...">
+            <img src="file://${path.join(__dirname, 'src', 'sakar.png')}" alt="Loading...">
         </body>
         </html>
     `, { baseURLForDataURL: `file://${__dirname}/` });

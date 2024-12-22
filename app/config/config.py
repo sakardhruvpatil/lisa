@@ -38,7 +38,6 @@ RIGHT_CAMERA_PFS =  os.path.join(BASE_DIR, "config/right_camera_config.pfs")
 BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11.engine")
 DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect.engine")
 HOR_BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor.engine")
-HOR_DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect_hor.engine")
 
 # Tracker path
 TRACKER_PATH = os.path.join(BASE_DIR, "models/botsort_defect.yaml")
@@ -49,8 +48,7 @@ DEFAULT_THRESHOLD = 95.0
 # Configuring Parameters for Accept/Reject decision
 ACCEPT = 0  # Can also be True, False, 1, or 0 as per your requirement
 REJECT = 1  # Can also be True, False, 1, or 0 as per your requirement
-START = 1
-STOP = 0
+
 # Date/Time configuration
 TIMEZONE = "Asia/Kolkata"
 
@@ -58,9 +56,6 @@ TIMEZONE = "Asia/Kolkata"
 LOGS_FILENAME_TEMPLATE = os.path.join(BASE_DIR, "logs/logs_{date}.csv")
 THRESHOLD_FILENAME = os.path.join(BASE_DIR, "logs/threshold_changes.csv")
 HISTORY_FILENAME = os.path.join(BASE_DIR, "logs/history.csv")
-
-# Video properties
-VIDEO_FPS = 25  # Default FPS if not available
 
 # Define the amount to crop from the left and right
 CROP_LEFT = 1  # Pixels to crop from the left

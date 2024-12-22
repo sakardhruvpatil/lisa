@@ -50,6 +50,7 @@
 			"build/**/*",
 			"node_modules/**/*",
 			"server/**/*",
+			"src/**/*",
 			"electron.js",
 			{
 				"from": "../app",

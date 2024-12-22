@@ -7,7 +7,7 @@ from config.config import *
 from database.database import *
 from utils.logger import log_bug, log_print
 from utils.video_processing import CameraManager
-from utils.models_and_states import State, bedsheet_model, defect_model, hor_bedsheet_model, hor_defect_model
+from utils.models_and_states import State, bedsheet_model, defect_model, hor_bedsheet_model
 import pytz
 import numpy as np
 from fastapi import (
@@ -191,29 +191,6 @@ class CameraProcessor:
         except Exception as e:
             print(f"Failed to write decision for {self.side} camera: {e}")
 
-    # Replace the existing write_start_to_file method with the one below:
-    def write_start_to_file(self, start):
-        """
-        Write the decision to the specific decision file for the camera (left or right).
-        Uses ACCEPT and REJECT from config.
-        """
-        # Define the writable directory for bug logs
-        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
-        os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
-    
-        # Determine the decision value from config
-        start_value = START if start == START else STOP
-    
-        # Determine the decision file based on the camera side
-        start_file = os.path.join(log_dir, f"start_{self.side}.txt")
-        try:
-            # Write the decision to the file
-            with open(start_file, "w") as file:
-                file.write(str(start_value))  # Write the corresponding value (True/False or 1/0)
-            print(f"Start for {self.side} camera written to {start_file}.")
-        except Exception as e:
-            print(f"Failed to write start for {self.side} camera: {e}")
-
     def detect(self, frame):
         global CLEAN_THRESHOLD  # Access the global variable
 
@@ -291,7 +268,6 @@ class CameraProcessor:
                                                     False  # Reset await flag
                                                 )
                                                 self.display_not_clean = False
-                                                self.write_start_to_file(START)
                                                 log_print(
                                                     f"{self.side} camera: Transitioned to TRACKING_SCANNING: Starting edge detected."
                                                 )
@@ -348,8 +324,6 @@ class CameraProcessor:
                             f"{self.side} camera: Defect detection skipped. Model not loaded."
                         )
 
-                    class_names = ['defect', 'tear']  # Ensure this matches your model's classes
-
                     if defect_results and (self.state == State.TRACKING_SCANNING):
                         # Count defects only within the bedsheet region
                         for defect_result in defect_results:
@@ -371,43 +345,6 @@ class CameraProcessor:
 
                                     # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
-
-                                    # Get the class name for the current defect
-                                    class_name = class_names[int(defect_id)]  # Convert ID to class name
-
-                                    # Check for tear detection
-                                    if class_name == 'tear':
-                                        self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to detected tear."
-                                        )
-                                        self.write_decision_to_file(REJECT)
-                                        decision = "Rejected"
-                                        log_to_mongo(
-                                            self.collection,
-                                            self.bedsheet_count + 1,
-                                            100,  # You can adjust this value as needed
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history(
-                                            self.history_collection,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean' due to tear."
-                                        )
-                                        self.bedsheet_count += 1
-                                        self.reset_defect_tracking_variables()
-
-                                        # Transition to IDLE after logging
-                                        self.state = State.IDLE
-                                        log_print(
-                                            f"{self.side} camera: Transitioned to IDLE after rejection due to detected tear."
-                                        )
-                                        break  # Exit further processing for this frame
 
                                     # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
@@ -578,7 +515,6 @@ class CameraProcessor:
                                     False  # No need to display "Not Clean"
                                 )
                                 self.write_decision_to_file(ACCEPT)
-                                self.write_start_to_file(STOP)
                                 # Log cleanliness analysis
                                 analysis_message = (
                                     f"Threshold: {CLEAN_THRESHOLD}%, "
@@ -906,29 +842,6 @@ class StitchedCameraProcessor:
             except Exception as e:
                 print(f"Failed to write decision for {side} camera: {e}")
 
-    # Replace the existing write_start_to_file method with the one below:
-    def write_start_to_file(self, start):
-        """
-        Write the decision to the specific decision file for the camera (left or right).
-        Uses ACCEPT and REJECT from config.
-        """
-        # Define the writable directory for bug logs
-        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
-        os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
-    
-        # Determine the decision value from config
-        start_value = START if start == START else STOP
-    
-        # Determine the decision file based on the camera side
-        start_file = os.path.join(log_dir, f"start_{self.side}.txt")
-        try:
-            # Write the decision to the file
-            with open(start_file, "w") as file:
-                file.write(str(start_value))  # Write the corresponding value (True/False or 1/0)
-            print(f"Start for {self.side} camera written to {start_file}.")
-        except Exception as e:
-            print(f"Failed to write start for {self.side} camera: {e}")
-
     def detect_horizontal(self, stitched_frame):
         global CLEAN_THRESHOLD  # Access the global variable
 
@@ -1005,7 +918,6 @@ class StitchedCameraProcessor:
                                                     False  # Reset await flag
                                                 )
                                                 self.display_not_clean = False
-                                                self.write_start_to_file(START)
                                                 log_print(
                                                     "Transitioned to TRACKING_SCANNING: Starting edge detected."
                                                 )
@@ -1021,12 +933,12 @@ class StitchedCameraProcessor:
                             log_bug(f"Error during bedsheet detection. Exception: {e}(Error code: {error_code})")
                             log_print("Skipping bedsheet detection due to an error.")
 
-                elif self.state == State.TRACKING_SCANNING and hor_defect_model:
-                    if hor_defect_model:  # Check if hor_defect_model is loaded
+                elif self.state == State.TRACKING_SCANNING and defect_model:
+                    if defect_model:  # Check if defect_model is loaded
                         if not self.defect_tracking_error:
                             try:
                                 # Perform defect tracking
-                                defect_results = hor_defect_model.track(
+                                defect_results = defect_model.track(
                                     source=frame_resized,
                                     conf=DEFECT_CONF_THRESHOLD,
                                     verbose=False,
@@ -1054,8 +966,6 @@ class StitchedCameraProcessor:
                         defect_results = None  # Ensure defect_results is defined
                         log_print("Defect detection skipped. Model not loaded.")
 
-                    class_names = ['defect', 'tear']
-
                     if defect_results and (self.state == State.TRACKING_SCANNING):
                         # Count defects only within the bedsheet region
                         for defect_result in defect_results:
@@ -1077,43 +987,6 @@ class StitchedCameraProcessor:
 
                                     # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
-
-                                    # Get the class name for the current defect
-                                    class_name = class_names[int(defect_id)]  # Convert ID to class name
-
-                                    # Check for tear detection
-                                    if class_name == 'tear':
-                                        self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to detected tear."
-                                        )
-                                        self.write_decision_to_file(REJECT)
-                                        decision = "Rejected"
-                                        log_to_mongo(
-                                            self.collection,
-                                            self.bedsheet_count + 1,
-                                            100,  # You can adjust this value as needed
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history(
-                                            self.history_collection,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean' due to tear."
-                                        )
-                                        self.bedsheet_count += 1
-                                        self.reset_defect_tracking_variables()
-
-                                        # Transition to IDLE after logging
-                                        self.state = State.IDLE
-                                        log_print(
-                                            f"{self.side} camera: Transitioned to IDLE after rejection due to detected tear."
-                                        )
-                                        break  # Exit further processing for this frame
 
                                     # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
@@ -1294,7 +1167,6 @@ class StitchedCameraProcessor:
                                     False  # No need to display "Not Clean"
                                 )
                                 self.write_decision_to_file(ACCEPT)
-                                self.write_start_to_file(STOP)
 
                                 # Log cleanliness analysis
                                 analysis_message = (

@@ -29,4 +29,3 @@ def load_model(model_path, model_name):
 bedsheet_model = load_model(BEDSHEET_MODEL_PATH, "Bedsheet")
 defect_model = load_model(DEFECT_MODEL_PATH, "Defect")
 hor_bedsheet_model = load_model(HOR_BEDSHEET_MODEL_PATH, "Horizontal Bedsheet")  # Add this
-hor_defect_model = load_model(HOR_DEFECT_MODEL_PATH, "Horizontal Defect")  # Add this
