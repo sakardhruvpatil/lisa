@@ -26,8 +26,8 @@ CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
 
 # Update video sources to use IP addresses for Basler cameras
-VIDEO_SOURCE_LEFT = "192.168.1.10"  # IP address of the left Basler camera
-VIDEO_SOURCE_RIGHT = "192.168.1.20"  # IP address of the right Basler camera
+VIDEO_SOURCE_LEFT = "192.168.1.20"  # IP address of the left Basler camera
+VIDEO_SOURCE_RIGHT = "192.168.1.10"  # IP address of the right Basler camera
 
 # Paths to your PFS files
 LEFT_CAMERA_PFS = os.path.join(BASE_DIR, "config/left_camera_config.pfs")
