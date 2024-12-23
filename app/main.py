@@ -808,10 +808,10 @@ class StitchedCameraProcessor:
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
         try:
-            left_frame_resized = cv2.resize(left_frame, (640, 480))
-            right_frame_resized = cv2.resize(right_frame, (640, 480))
+            #left_frame_resized = cv2.resize(left_frame, (640, 480))
+            #right_frame_resized = cv2.resize(right_frame, (640, 480))
             stitched_frame = np.concatenate(
-                [left_frame_resized, right_frame_resized], axis=1
+                [left_frame, right_frame], axis=1
             )
             return stitched_frame
         except Exception as e:

@@ -3,7 +3,7 @@
 
 from enum import Enum
 from ultralytics import YOLO
-from config.config import BEDSHEET_MODEL_PATH, DEFECT_MODEL_PATH, HOR_BEDSHEET_MODEL_PATH, HOR_DEFECT_MODEL_PATH  # Adjusted import path
+from config.config import BEDSHEET_MODEL_PATH, DEFECT_MODEL_PATH, HOR_BEDSHEET_MODEL_PATH  # Adjusted import path
 from utils.logger import log_bug, log_print
 
 # Finite State Machine

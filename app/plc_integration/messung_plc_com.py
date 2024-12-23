@@ -83,7 +83,7 @@ def read_current_speed(logFilePath, log_file_name):
     return None
 
 
-def write_registers(signal_code1, signal_code2, current_speed, start_left, start_right):
+def write_registers(signal_code1, signal_code2, current_speed):
     """Writes signal codes and current speed to the Modbus registers."""
     if signal_code1 is not None:
         client.write_register(0, int(signal_code1))  # Ensure it's an integer
@@ -91,10 +91,6 @@ def write_registers(signal_code1, signal_code2, current_speed, start_left, start
         client.write_register(2, int(signal_code2))  # Ensure it's an integer
     if current_speed is not None:
         client.write_register(1, int(current_speed))  # Example: writing to register 2 for speed
-    if start_left is not None:
-        client.write_register(3, int(start_left))  # Write to port 3
-    if start_right is not None:
-        client.write_register(4, int(start_right))  # Write to port 4
 
 # Main execution
 if connect_modbus():
@@ -104,12 +100,10 @@ if connect_modbus():
             signal_code1 = read_signal_from_file("decision_left.txt")
             signal_code2 = read_signal_from_file("decision_right.txt")
             current_speed = read_current_speed(LOG_DIR, "log.txt")
-            start_left = read_signal_from_file("start_left.txt")
-            start_right = read_signal_from_file("start_right.txt")
 
             # Write the read values to the Modbus registers
             write_registers(
-                signal_code1, signal_code2, current_speed, start_left, start_right
+                signal_code1, signal_code2, current_speed
             )
 
             # If signal is 1, overwrite the file with 0 after 1 second
@@ -119,12 +113,6 @@ if connect_modbus():
             if signal_code2 == 1:
                 time.sleep(1)  # Wait for 1 second before updating the file
                 write_signal_to_file("decision_right.txt", 0)  # Overwrite with 0
-            if start_left == 1:
-                time.sleep(1)  # Wait for 1 second before updating the file
-                write_signal_to_file("start_left.txt", 0)  # Overwrite with 0
-            if start_right == 1:
-                time.sleep(1)  # Wait for 1 second before updating the file
-                write_signal_to_file("start_right.txt", 0)  # Overwrite with 0
 
             # Add a delay to avoid overloading the system
             time.sleep(1)  # Sleep for 1 second (adjust as necessary)
