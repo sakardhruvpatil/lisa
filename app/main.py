@@ -396,88 +396,6 @@ class CameraProcessor:
                                             1,
                                         )
 
-                                    # Immediate rejection if dirty percentage exceeds 100%
-                                    if defect_percent_real_time >= 100:
-                                        self.state = (
-                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        )
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1}: Rejected due to defect percent >= 100%"
-                                        )
-                                        self.write_decision_to_file(REJECT)
-                                        decision = "Rejected"
-                                        log_to_mongo(
-                                            self.collection,
-                                            self.bedsheet_count + 1,
-                                            100,
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history(
-                                            self.history_collection,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
-                                        )
-                                        self.bedsheet_count += 1
-                                        self.reset_defect_tracking_variables()
-
-                                        # Transition to IDLE after logging
-                                        self.state = State.IDLE
-                                        log_print(
-                                            f"{self.side} camera: Transitioned to IDLE after rejection due to defect percent >= 100%"
-                                        )
-                                        break  # Exit further processing for this frame
-
-                                    # Check cleanliness threshold
-                                    if clean_percent_real_time < CLEAN_THRESHOLD:
-                                        self.state = (
-                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        )
-                                        self.await_ending_edge = True
-                                        self.display_not_clean = True
-                                        self.write_decision_to_file(REJECT)
-
-                                        # Log cleanliness analysis
-                                        analysis_message = (
-                                            f"Threshold: {CLEAN_THRESHOLD}%, "
-                                            f"Bedsheet {self.bedsheet_count + 1}: Not Clean Prematurely. "
-                                            f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                            f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                        )
-                                        log_print(f"{self.side} camera: {analysis_message}")
-
-                                        # Decision for "Not Clean"
-                                        decision = "Rejected"
-                                        log_to_mongo(
-                                            self.collection,
-                                            self.bedsheet_count + 1,
-                                            defect_percent_real_time,
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history(
-                                            self.history_collection,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
-                                        )
-                                        self.bedsheet_count += (
-                                            1  # Increment bedsheet number
-                                        )
-
-                                        # Reset area calculations but continue tracking until ending edge
-                                        self.reset_defect_tracking_variables()
-
-                                        # **Important:** Break out of defect processing to avoid further detections in this frame
-                                        break
-
                 # Detect ending edge to transition to IDLE or other states
                 if self.state == State.TRACKING_SCANNING:
                     bedsheet_results = bedsheet_model.predict(
@@ -636,26 +554,6 @@ class CameraProcessor:
                     else:
                         defect_percent = 0.0
                         clean_percent = 100.0
-
-                    # Display on frame
-                    cv2.putText(
-                        frame_resized,
-                        f"Defect Percent: {defect_percent:.2f}%",
-                        (10, 310),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (255, 0, 0),
-                        2,
-                    )
-                    cv2.putText(
-                        frame_resized,
-                        f"Clean Percent: {clean_percent:.2f}%",
-                        (10, 350),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0),
-                        2,
-                    )
 
                     # Display cleanliness status if not already classified as Not Clean or Clean
                     if self.state not in [
@@ -1045,88 +943,6 @@ class StitchedCameraProcessor:
                                             1,
                                         )
 
-                                    # Immediate rejection if dirty percentage exceeds 100%
-                                    if defect_percent_real_time >= 100:
-                                        self.state = (
-                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        )
-                                        log_print(
-                                            f"Bedsheet {self.bedsheet_count + 1}: Rejected due to defect percent >= 100%"
-                                        )
-                                        self.write_decision_to_file(REJECT)
-                                        decision = "Rejected"
-                                        log_to_horizontal(
-                                            self.horizontal_collection,
-                                            self.bedsheet_count + 1,
-                                            100,
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history_hor(
-                                            self.history_collection_hor,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
-                                        )
-                                        self.bedsheet_count += 1
-                                        self.reset_defect_tracking_variables()
-
-                                        # Transition to IDLE after logging
-                                        self.state = State.IDLE
-                                        log_print(
-                                            "Transitioned to IDLE after rejection due to defect percent >= 100%"
-                                        )
-                                        break  # Exit further processing for this frame
-
-                                    # Check cleanliness threshold
-                                    if clean_percent_real_time < CLEAN_THRESHOLD:
-                                        self.state = (
-                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-                                        )
-                                        self.await_ending_edge = True
-                                        self.display_not_clean = True
-                                        self.write_decision_to_file(REJECT)
-
-                                        # Log cleanliness analysis
-                                        analysis_message = (
-                                            f"Threshold: {CLEAN_THRESHOLD}%, "
-                                            f"Bedsheet {self.bedsheet_count + 1}: Not Clean Prematurely. "
-                                            f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                            f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                        )
-                                        log_print(f"{analysis_message}")
-
-                                        # Decision for "Not Clean"
-                                        decision = "Rejected"
-                                        log_to_horizontal(
-                                            self.horizontal_collection,
-                                            self.bedsheet_count + 1,
-                                            defect_percent_real_time,
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        update_history_hor(
-                                            self.history_collection_hor,
-                                            get_current_date_str(),
-                                            CLEAN_THRESHOLD,
-                                            decision,
-                                        )
-                                        log_print(
-                                            f"Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
-                                        )
-                                        self.bedsheet_count += (
-                                            1  # Increment bedsheet number
-                                        )
-
-                                        # Reset area calculations but continue tracking until ending edge
-                                        self.reset_defect_tracking_variables()
-
-                                        # **Important:** Break out of defect processing to avoid further detections in this frame
-                                        break
-
                 # Detect ending edge to transition to IDLE or other states
                 if self.state == State.TRACKING_SCANNING:
                     bedsheet_results = hor_bedsheet_model.predict(
@@ -1290,26 +1106,6 @@ class StitchedCameraProcessor:
                     else:
                         defect_percent = 0.0
                         clean_percent = 100.0
-
-                    # Display on frame
-                    cv2.putText(
-                        frame_resized,
-                        f"Defect Percent: {defect_percent:.2f}%",
-                        (10, 310),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (255, 0, 0),
-                        2,
-                    )
-                    cv2.putText(
-                        frame_resized,
-                        f"Clean Percent: {clean_percent:.2f}%",
-                        (10, 350),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0),
-                        2,
-                    )
 
                     # Display cleanliness status if not already classified as Not Clean or Clean
                     if self.state not in [
