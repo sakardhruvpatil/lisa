@@ -208,7 +208,6 @@ class CameraProcessor:
             return
         
         # Get video properties
-        original_height, original_width = frame.shape[:2]
         frame_resized = frame
         frame_height = frame_resized.shape[0]
 
@@ -361,12 +360,6 @@ class CameraProcessor:
                                         # New defect ID: add its area to total_defect_area and store it
                                         self.defect_max_areas[defect_id] = defect_area
                                         self.total_defect_area += defect_area
-
-                                    # Calculate real-time clean percent based on DEFAULT_BEDSHEET_AREA
-                                    defect_percent_real_time = (
-                                        self.total_defect_area / DEFAULT_BEDSHEET_AREA
-                                    ) * 100
-                                    clean_percent_real_time = 100 - defect_percent_real_time
 
                                     # **Draw Bounding Boxes Around Defects**
                                     # Check if bounding box coordinates are available
@@ -756,7 +749,6 @@ class StitchedCameraProcessor:
             )
             return
         # Get video properties
-        original_height, original_width = stitched_frame.shape[:2]
         frame_resized = stitched_frame
         frame_height = frame_resized.shape[0]
 
@@ -906,14 +898,6 @@ class StitchedCameraProcessor:
                                         # New defect ID: add its area to total_defect_area and store it
                                         self.defect_max_areas[defect_id] = defect_area
                                         self.total_defect_area += defect_area
-
-                                    # Calculate real-time clean percent based on DEFAULT_BEDSHEET_AREA
-                                    defect_percent_real_time = (
-                                        self.total_defect_area / DEFAULT_BEDSHEET_AREA
-                                    ) * 100
-                                    clean_percent_real_time = (
-                                        100 - defect_percent_real_time
-                                    )
 
                                     # **Draw Bounding Boxes Around Defects**
                                     # Check if bounding box coordinates are available

@@ -4,11 +4,11 @@ from pypylon import pylon
 import cv2
 import numpy as np
 
-# Relative paths to PFS files (assuming this script is in the "unit_tests" folder)
+# Relative paths to PFS files
 LEFT_CAMERA_PFS = os.path.join("..", "config", "left_camera_config.pfs")
 RIGHT_CAMERA_PFS = os.path.join("..", "config", "right_camera_config.pfs")
 
-# Relative directory for saving captures (creating "dataset" folder at the same level as "config" and "unit_tests")
+# Relative directory for saving captures
 base_dataset_dir = os.path.join("capture")
 timestamp = int(time.time())  # Current timestamp in seconds
 
@@ -20,11 +20,14 @@ right_dataset_timestamp_dir = os.path.join(base_dataset_dir, "right_dataset", f"
 os.makedirs(left_dataset_timestamp_dir, exist_ok=True)
 os.makedirs(right_dataset_timestamp_dir, exist_ok=True)
 
-# List of camera IPs and their configurations
+# Camera configurations
 camera_configs = [
     {"ip": "192.168.1.20", "side": "left", "pfs": LEFT_CAMERA_PFS},
     {"ip": "192.168.1.10", "side": "right", "pfs": RIGHT_CAMERA_PFS}
 ]
+
+# For tracking which side corresponds to each camera
+camera_side_map = {}
 
 # Initialize cameras
 cameras = []
@@ -46,9 +49,12 @@ for config in camera_configs:
     else:
         print(f"{side.capitalize()} camera: PFS file {pfs_file} not found.")
 
-    # Store side information in camera object for later use
+    # Attach the device (optional in some scripts; do not store side as a node in the camera)
     camera.Attach(pylon.TlFactory.GetInstance().CreateDevice(device_info))
-    camera.SetContextValue("side", side)
+
+    # Store the camera object and its side in a Python dictionary
+    camera_side_map[camera] = side
+
     cameras.append(camera)
 
 # Start grabbing on all cameras
@@ -73,11 +79,15 @@ try:
                     # Convert image to OpenCV format
                     image = converter.Convert(grab_result)
                     frame = image.GetArray()
-                    side = camera.GetContextValue("side")
+
+                    # Retrieve which 'side' this camera is (left or right) from our dictionary
+                    side = camera_side_map[camera]
+
                     frames[side] = frame
+
                 grab_result.Release()
 
-        # If we got frames for both cameras, we can display a stitched feed if desired
+        # If we got frames from both sides, display and/or save them
         if len(frames) == len(cameras):
             left_frame = frames["left"]
             right_frame = frames["right"]

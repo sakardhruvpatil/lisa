@@ -9,14 +9,11 @@ LEFT_CAMERA_PFS = os.path.join("..", "config", "left_camera_config.pfs")
 RIGHT_CAMERA_PFS = os.path.join("..", "config", "right_camera_config.pfs")
 
 # Relative directory for saving captures
-# Images will be stored in "unit_test/captures/horizontal_dataset"
-base_captures_dir = os.path.join("captures")
+base_captures_dir = os.path.join("capture")
 timestamp = int(time.time())  # Current timestamp in seconds
 
 # Directory for the current run within horizontal_dataset
 current_capture_dir = os.path.join(base_captures_dir, "horizontal_dataset", f"run_{timestamp}")
-
-# Create the directory for the current run if it doesn't exist
 os.makedirs(current_capture_dir, exist_ok=True)
 
 # List of camera IPs and their configurations
@@ -24,6 +21,9 @@ camera_configs = [
     {"ip": "192.168.1.20", "side": "left", "pfs": LEFT_CAMERA_PFS},
     {"ip": "192.168.1.10", "side": "right", "pfs": RIGHT_CAMERA_PFS}
 ]
+
+# Dictionary to associate each InstantCamera instance with a side label
+camera_side_map = {}
 
 # Initialize cameras
 cameras = []
@@ -33,20 +33,19 @@ for config in camera_configs:
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateDevice(device_info))
     camera.Open()
 
-    # Apply the camera-specific configuration from PFS file
-    pfs_file = config["pfs"]
-    side = config["side"]
-    if os.path.exists(pfs_file):
+    # Apply the camera-specific configuration from the PFS file
+    if os.path.exists(config["pfs"]):
         try:
-            pylon.FeaturePersistence.Load(pfs_file, camera.GetNodeMap(), True)
-            print(f"{side.capitalize()} camera settings loaded from {pfs_file}.")
+            pylon.FeaturePersistence.Load(config["pfs"], camera.GetNodeMap(), True)
+            print(f"{config['side'].capitalize()} camera settings loaded from {config['pfs']}.")
         except Exception as e:
-            print(f"{side.capitalize()} camera: Failed to load PFS file {pfs_file}. Exception: {e}")
+            print(f"{config['side'].capitalize()} camera: Failed to load PFS file {config['pfs']}. Exception: {e}")
     else:
-        print(f"{side.capitalize()} camera: PFS file {pfs_file} not found.")
+        print(f"{config['side'].capitalize()} camera: PFS file {config['pfs']} not found.")
 
-    # Store side information in camera object for later use
-    camera.SetContextValue("side", side)
+    # Keep track of which side corresponds to this camera
+    camera_side_map[camera] = config["side"]
+
     cameras.append(camera)
 
 # Start grabbing on all cameras
@@ -59,8 +58,8 @@ converter.OutputPixelFormat = pylon.PixelType_BGR8packed
 converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
 try:
-    frame_count = 0  # Counter for image filenames
-    last_capture_time = time.time()  # Track the last capture time
+    frame_count = 0
+    last_capture_time = time.time()
 
     while True:
         frames = {}
@@ -68,15 +67,18 @@ try:
             if camera.IsGrabbing():
                 grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
                 if grab_result.GrabSucceeded():
-                    # Convert image to OpenCV format
+                    # Convert image to an OpenCV-compatible format
                     image = converter.Convert(grab_result)
                     frame = image.GetArray()
-                    side = camera.GetContextValue("side")
+
+                    # Use our dictionary to grab the correct side ("left" or "right")
+                    side = camera_side_map[camera]
                     frames[side] = frame
+
                 grab_result.Release()
 
         # If we got frames for both cameras, process them
-        if len(frames) == len(cameras):
+        if len(frames) == 2:  # or == len(cameras)
             left_frame = frames["left"]
             right_frame = frames["right"]
 
@@ -94,7 +96,7 @@ try:
             # Concatenate frames horizontally
             concatenated_frame = np.concatenate([left_resized, right_resized], axis=1)
 
-            # Display concatenated feed
+            # Show concatenated feed
             cv2.imshow("Concatenated Feed", concatenated_frame)
 
             # Save concatenated frame every 1 second
