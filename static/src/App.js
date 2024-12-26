@@ -14,8 +14,9 @@ import logo from './sakar.png'; // Import the logo image
 // Main App component
 
 const App = () => {
-	const [cameraLayout, setCameraLayout] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Initialize with mode from localStorage
-	const [mode, setMode] = useState(localStorage.getItem('cameraMode') || 'vertical'); // Default to 'vertical'  
+	// Always default to 'vertical' and do not store in localStorage
+	const [cameraLayout, setCameraLayout] = useState('vertical');
+	const [mode, setMode] = useState('vertical');
 	const [acceptanceRate, setAcceptanceRate] = useState(null); // Default acceptance rate
 	const [speed, setSpeed] = useState(0); // State to store the current speed
 	const [loadingSpeed, setLoadingSpeed] = useState(true); // Loading state for speed
@@ -53,9 +54,6 @@ const App = () => {
 	}, [mode]);
 
 	useEffect(() => {
-		const savedMode = localStorage.getItem('cameraMode') || 'vertical';
-		setMode(savedMode);
-		setCameraLayout(savedMode); // Adjust layout based on saved mode
 		fetchCurrentThreshold(); // Fetch threshold on initial load
 	}, [fetchCurrentThreshold]);
 
@@ -68,11 +66,10 @@ const App = () => {
 		fetchCurrentThreshold(); // Fetch threshold whenever mode changes
 	}, [mode, fetchCurrentThreshold]);
 
-	// Handle mode change and update layout accordingly
+	// Handle mode change without using localStorage
 	const handleModeChange = (newMode) => {
 		setMode(newMode);
-		localStorage.setItem('cameraMode', newMode); // Save the mode to localStorage
-		setCameraLayout(newMode === 'vertical' ? 'horizontal' : 'vertical'); // Ensure layout reflects the mode
+		setCameraLayout(newMode === 'horizontal' ? 'horizontal' : 'vertical');
 	};
 
 
@@ -147,7 +144,7 @@ const App = () => {
 
 
 // Component for the Home page with webcam controls
-const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout, setLoadingSpeed, loadingSpeed  }) => {
+const HomeWithWebcam = ({ mode, acceptanceRate, cameraLayout, setLoadingSpeed, loadingSpeed }) => {
 	const [speed, setSpeed] = useState(0);
 	const [currentTime, setCurrentTime] = useState(new Date());
 

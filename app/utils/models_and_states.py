@@ -3,7 +3,7 @@
 
 from enum import Enum
 from ultralytics import YOLO
-from config.config import BEDSHEET_MODEL_PATH, DEFECT_MODEL_PATH, HOR_BEDSHEET_MODEL_PATH  # Adjusted import path
+from config.config import BEDSHEET_MODEL_PATH, DEFECT_MODEL_PATH, HOR_BEDSHEET_MODEL_PATH, TEAR_MODEL_PATH  # Adjusted import path
 from utils.logger import log_bug, log_print
 
 # Finite State Machine
@@ -29,3 +29,4 @@ def load_model(model_path, model_name):
 bedsheet_model = load_model(BEDSHEET_MODEL_PATH, "Bedsheet")
 defect_model = load_model(DEFECT_MODEL_PATH, "Defect")
 hor_bedsheet_model = load_model(HOR_BEDSHEET_MODEL_PATH, "Horizontal Bedsheet")  # Add this
+tear_model = load_model(TEAR_MODEL_PATH, "Tear")  # Add this

@@ -24,6 +24,7 @@ def get_bug_log_file():
 DEFAULT_BEDSHEET_AREA = 50000  # Predefined bedsheet area in pixels
 CONF_THRESHOLD = 0.8
 DEFECT_CONF_THRESHOLD = 0.01
+TEAR_CONF_THRESHOLD = 0.5
 
 # Update video sources to use IP addresses for Basler cameras
 VIDEO_SOURCE_LEFT = "192.168.1.20"  # IP address of the left Basler camera
@@ -38,6 +39,7 @@ RIGHT_CAMERA_PFS =  os.path.join(BASE_DIR, "config/right_camera_config.pfs")
 BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11.engine")
 DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect.engine")
 HOR_BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor.engine")
+TEAR_MODEL_PATH = os.path.join(BASE_DIR, "models/tear.engine")
 
 # Tracker path
 TRACKER_PATH = os.path.join(BASE_DIR, "models/botsort_defect.yaml")

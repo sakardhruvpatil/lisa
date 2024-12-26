@@ -7,7 +7,13 @@ from config.config import *
 from database.database import *
 from utils.logger import log_bug, log_print
 from utils.video_processing import CameraManager
-from utils.models_and_states import State, bedsheet_model, defect_model, hor_bedsheet_model
+from utils.models_and_states import (
+    State,
+    bedsheet_model,
+    defect_model,
+    hor_bedsheet_model,
+    tear_model,
+)
 import pytz
 import numpy as np
 from fastapi import (
@@ -26,7 +32,6 @@ import asyncio
 import threading
 from threading import Lock
 import uvicorn
-import queue
 import time
 
 app = FastAPI()
@@ -52,6 +57,7 @@ horizontal_processing_lock = threading.Lock()
 
 # Global variable for the threshold
 CLEAN_THRESHOLD = 0
+
 
 class CameraProcessor:
     def __init__(self, side, camera_manager, process_mode="vertical"):
@@ -87,10 +93,12 @@ class CameraProcessor:
             "history_horizontal"
         ]  # Fetch last bedsheet number and threshold
         self.bedsheet_count = get_last_bedsheet_number(self.collection)
-        
+
         # Initialize threshold
         global CLEAN_THRESHOLD
-        CLEAN_THRESHOLD = get_last_threshold(self.threshold_collection, self.history_collection)
+        CLEAN_THRESHOLD = get_last_threshold(
+            self.threshold_collection, self.history_collection
+        )
         print(f"Initialized {self.side} camera with threshold: {CLEAN_THRESHOLD}")
 
         initialize_history_document(
@@ -135,20 +143,51 @@ class CameraProcessor:
         self.defect_max_areas.clear()
 
     def main_loop(self):
+        """
+        Continuously capture frames from the camera. If the camera is disconnected,
+        repeatedly attempt to reconnect until a valid frame is retrieved and then
+        continue normal execution.
+        """
         try:
             while self.is_active and not self.stop_event.is_set():
+                # If in horizontal mode, do not process individual frames
                 if self.process_mode == "horizontal":
-                    # If in horizontal mode, do not process individual frames
                     time.sleep(0.1)  # Sleep to avoid busy waiting
                     continue
 
-                # Process individual frames in vertical mode
+                # Attempt to capture a frame
                 frame = self.camera_manager.get_frame(self.side)
-                if frame is None:
-                    time.sleep(0.1)
-                    continue
 
-                if self.detection_enabled:  # Check if detection is enabled
+                if frame is None:
+                    # Briefly wait if a frame isn't available (e.g., transient network delay)
+                    time.sleep(0.1)
+
+                    # Check again to see if it's just a temporary issue
+                    frame = self.camera_manager.get_frame(self.side)
+                    if frame is None:
+                        # If still None, treat it as a potential disconnect
+                        log_print(
+                            f"{self.side.capitalize()} camera: No frame received. Attempting reconnection indefinitely..."
+                        )
+
+                        # Keep trying until the camera is successfully reconnected
+                        while True:
+                            # Attempt to reconnect
+                            self.camera_manager.reconnect_camera(self.side)
+                            time.sleep(self.reconnect_delay)
+
+                            # Test capture after attempting to reconnect
+                            test_frame = self.camera_manager.get_frame(self.side)
+                            if test_frame is not None:
+                                log_print(
+                                    f"{self.side.capitalize()} camera: Reconnection successful."
+                                )
+                                break  # Exit reconnect loop and continue main loop
+
+                        continue  # Once reconnected, continue from the top of the loop
+
+                # If we have a valid frame, proceed with detection
+                if self.detection_enabled:
                     try:
                         self.process_frame(frame)
                     except Exception as e:
@@ -163,10 +202,9 @@ class CameraProcessor:
     def process_frame(self, img):
         # Process each side independently
         height, width, _ = img.shape
-        #cropped = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
-        #print(f"Cropped image shape: {img.shape}")  # Log the shape
+        # cropped = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
+        # print(f"Cropped image shape: {img.shape}")  # Log the shape
         self.detect(img)
-
 
     # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
@@ -175,18 +213,20 @@ class CameraProcessor:
         Uses ACCEPT and REJECT from config.
         """
         # Define the writable directory for bug logs
-        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
+        log_dir = os.path.join(os.getenv("HOME"), "LISA_LOGS")
         os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
-    
+
         # Determine the decision value from config
         decision_value = REJECT if decision == REJECT else ACCEPT
-    
+
         # Determine the decision file based on the camera side
         decision_file = os.path.join(log_dir, f"decision_{self.side}.txt")
         try:
             # Write the decision to the file
             with open(decision_file, "w") as file:
-                file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
+                file.write(
+                    str(decision_value)
+                )  # Write the corresponding value (True/False or 1/0)
             print(f"Decision for {self.side} camera written to {decision_file}.")
         except Exception as e:
             print(f"Failed to write decision for {self.side} camera: {e}")
@@ -201,30 +241,34 @@ class CameraProcessor:
 
         # Ensure both frames are of the same size
         if self.previous_frame.shape != frame.shape:
-            error_code=1014
-            log_bug( 
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape}(Error code: {error_code})"
+            error_code = 1014
+            log_bug(
+                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {frame.shape} (Error code: {error_code})"
             )
             return
-        
+
         # Get video properties
         frame_resized = frame
         frame_height = frame_resized.shape[0]
 
         # Initialize bedsheet presence flags for display
-        bedsheet_present = False
         y1_positions = []
         y2_positions = []
-
 
         # Reset error state after 100 frames
         if self.defect_tracking_error and self.frame_counter >= 100:
             self.defect_tracking_error = False
             self.frame_counter = 0
 
-        # Perform defect tracking if no error
+        # ----------------------------------------------------------------
+        # Create or reset a tear_detected flag if not present.
+        # Once this is True, skip any further checks until ending edge.
+        # ----------------------------------------------------------------
+        if not hasattr(self, "tear_detected"):
+            self.tear_detected = False
+
+        # Perform normal tracking if no error
         if not self.defect_tracking_error:
-            # FSM Logic
             try:
                 if self.state == State.IDLE:
                     if bedsheet_model:  # Check if bedsheet_model is loaded
@@ -233,7 +277,6 @@ class CameraProcessor:
                             bedsheet_results = bedsheet_model.predict(
                                 source=frame_resized, conf=CONF_THRESHOLD, verbose=False
                             )
-
                             for result in bedsheet_results:
                                 if result.boxes:
                                     boxes, classes, confidences = (
@@ -246,7 +289,6 @@ class CameraProcessor:
                                             int(class_id) == 0
                                             and confidences[idx] > CONF_THRESHOLD
                                         ):
-                                            bedsheet_present = True
                                             x1, y1, x2, y2 = map(int, boxes[idx])
                                             cv2.rectangle(
                                                 frame_resized,
@@ -258,43 +300,73 @@ class CameraProcessor:
                                             y1_positions.append(y1)
                                             y2_positions.append(y2)
 
-                                            if (
-                                                y1 > frame_height * 0.75
-                                            ):  # Starting edge detected
+                                            # Starting edge detected
+                                            if y1 > frame_height * 0.75:
                                                 self.state = State.TRACKING_SCANNING
                                                 self.reset_defect_tracking_variables()
-                                                self.await_ending_edge = (
-                                                    False  # Reset await flag
-                                                )
+                                                self.await_ending_edge = False
                                                 self.display_not_clean = False
-                                                log_print(
-                                                    f"{self.side} camera: Transitioned to TRACKING_SCANNING: Starting edge detected."
+                                                self.tear_detected = (
+                                                    False  # Reset tear flag
                                                 )
-                                                break  # Assuming one bedsheet per frame
-
-                            #log_print(
-                            #    f"{self.side} camera: Bedsheet Present"
-                            #    if bedsheet_present
-                            #    else f"{self.side} camera: Bedsheet Not Present"
-                            #)
+                                                log_print(
+                                                    f"{self.side} camera: Transitioned to TRACKING_SCANNING (bedsheet start)."
+                                                )
+                                                break
                         except Exception as e:
-                            error_code=1015
+                            error_code = 1015
                             log_bug(
-                                f"{self.side} camera: Error during bedsheet detection. Exception: {e}(Error code: {error_code})"
+                                f"{self.side} camera: Bedsheet detection error: {e} (Error code: {error_code})"
                             )
                             log_print(
                                 f"{self.side} camera: Skipping bedsheet detection due to an error."
                             )
                     else:
                         log_print(
-                            f"{self.side} camera: Bedsheet detection skipped. Model not loaded."
+                            f"{self.side} camera: Bedsheet detection skipped (model not loaded)."
                         )
 
-                elif self.state == State.TRACKING_SCANNING and defect_model:
-                    if defect_model:  # Check if defect_model is loaded
+                elif self.state == State.TRACKING_SCANNING:
+                    # ---------------------------------------------------
+                    # 1) First check if tear is already detected.
+                    #    If not, run the tear model.
+                    # ---------------------------------------------------
+                    if not self.tear_detected and tear_model:
+                        try:
+                            tear_results = tear_model.predict(
+                                source=frame_resized,
+                                conf=TEAR_CONF_THRESHOLD,
+                                verbose=False,
+                            )
+                            for result in tear_results:
+                                if result.boxes:
+                                    boxes, classes, confidences = (
+                                        result.boxes.xyxy,
+                                        result.boxes.cls,
+                                        result.boxes.conf,
+                                    )
+                                    for idx, class_id in enumerate(classes):
+                                        if (
+                                            int(class_id) == 0
+                                            and confidences[idx] > TEAR_CONF_THRESHOLD
+                                        ):
+                                            self.tear_detected = True
+                                            log_print(
+                                                f"{self.side} camera: Tear detected!"
+                                            )
+                                            break
+                        except Exception as e:
+                            error_code = 1018
+                            log_bug(
+                                f"{self.side} camera: Tear detection error: {e} (Error code: {error_code})"
+                            )
+
+                    # --------------------------------------
+                    # 2) If tear not detected, do defect checks
+                    # --------------------------------------
+                    if not self.tear_detected and defect_model:
                         if not self.defect_tracking_error:
                             try:
-                                # Perform defect tracking
                                 defect_results = defect_model.track(
                                     source=frame_resized,
                                     conf=DEFECT_CONF_THRESHOLD,
@@ -304,27 +376,26 @@ class CameraProcessor:
                                 )
                             except Exception as e:
                                 self.defect_tracking_error = True
-                                defect_results = None  # Ensure defect_results is defined
-                                error_code=1016
+                                defect_results = None
+                                error_code = 1016
                                 log_bug(
-                                    f"{self.side} camera: Defect tracking error occurred. Exception: {e}(Error code: {error_code})"
+                                    f"{self.side} camera: Defect tracking error: {e} (Error code: {error_code})"
                                 )
                                 log_print(
-                                    f"{self.side} camera: Skipping defect detection due to an error. Feed will continue running."
+                                    f"{self.side} camera: Skipping defect detection due to an error."
                                 )
                         else:
-                            defect_results = None  # Ensure defect_results is defined
+                            defect_results = None
                             log_print(
-                                f"{self.side} camera: Skipping defect detection as an error was previously encountered."
+                                f"{self.side} camera: Skipping defect detection because an error was encountered."
                             )
                     else:
-                        defect_results = None  # Ensure defect_results is defined
-                        log_print(
-                            f"{self.side} camera: Defect detection skipped. Model not loaded."
-                        )
+                        defect_results = None
 
-                    if defect_results and (self.state == State.TRACKING_SCANNING):
-                        # Count defects only within the bedsheet region
+                    # ------------------------------------
+                    # 3) Update defect area if no tear
+                    # ------------------------------------
+                    if defect_results and not self.tear_detected:
                         for defect_result in defect_results:
                             masks = defect_result.masks
                             tracks = (
@@ -332,37 +403,31 @@ class CameraProcessor:
                                 if defect_result.boxes.id is not None
                                 else None
                             )
-
                             if masks is not None and tracks is not None:
-                                mask_array = masks.data
-                                for j, mask in enumerate(mask_array):
+                                for j, mask in enumerate(masks.data):
                                     defect_mask = mask.cpu().numpy()
                                     defect_id = tracks[j]
-                                    defect_area = np.sum(
-                                        defect_mask
-                                    )  # Calculate defect area as the sum of mask pixels
+                                    defect_area = np.sum(defect_mask)
 
-                                    # Track unique defect IDs for the current bedsheet
+                                    # Track unique defect IDs
                                     self.unique_defect_ids.add(defect_id)
-
-                                    # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
-                                        # Only update if the new area is larger than the last maximum area
-                                        if defect_area > self.defect_max_areas[defect_id]:
-                                            # Adjust total_defect_area to account for the increase
+                                        if (
+                                            defect_area
+                                            > self.defect_max_areas[defect_id]
+                                        ):
                                             self.total_defect_area += (
                                                 defect_area
                                                 - self.defect_max_areas[defect_id]
                                             )
-                                            # Update the maximum area for this defect ID
-                                            self.defect_max_areas[defect_id] = defect_area
+                                            self.defect_max_areas[defect_id] = (
+                                                defect_area
+                                            )
                                     else:
-                                        # New defect ID: add its area to total_defect_area and store it
                                         self.defect_max_areas[defect_id] = defect_area
                                         self.total_defect_area += defect_area
 
-                                    # **Draw Bounding Boxes Around Defects**
-                                    # Check if bounding box coordinates are available
+                                    # Optionally draw bounding boxes for defects
                                     if (
                                         hasattr(defect_result.boxes, "xyxy")
                                         and len(defect_result.boxes.xyxy) > j
@@ -370,15 +435,13 @@ class CameraProcessor:
                                         x1_d, y1_d, x2_d, y2_d = (
                                             defect_result.boxes.xyxy[j].int().tolist()
                                         )
-                                        # Draw rectangle around defect
                                         cv2.rectangle(
                                             frame_resized,
                                             (x1_d, y1_d),
                                             (x2_d, y2_d),
-                                            (0, 0, 255),  # Red color for defects
+                                            (0, 0, 255),
                                             2,
                                         )
-                                        # Annotate defect ID
                                         cv2.putText(
                                             frame_resized,
                                             f"ID: {defect_id}",
@@ -389,127 +452,145 @@ class CameraProcessor:
                                             1,
                                         )
 
-                # Detect ending edge to transition to IDLE or other states
-                if self.state == State.TRACKING_SCANNING:
-                    bedsheet_results = bedsheet_model.predict(
-                        source=frame_resized, conf=CONF_THRESHOLD, verbose=False
-                    )
-                    bedsheet_present = False
-                    y2_positions = []
-
-                    for result in bedsheet_results:
-                        if result.boxes:
-                            boxes, classes, confidences = (
-                                result.boxes.xyxy,
-                                result.boxes.cls,
-                                result.boxes.conf,
-                            )
-                            for idx, class_id in enumerate(classes):
-                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
-                                    bedsheet_present = True
-                                    x1, y1, x2, y2 = map(int, boxes[idx])
-                                    y2_positions.append(y2)
-
-                    if y2_positions:
-                        y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:  # Ending edge detected
-                            # Clean decision upon ending edge detection
-                            defect_percent_real_time = (
-                                self.total_defect_area / DEFAULT_BEDSHEET_AREA
-                            ) * 100
-                            clean_percent_real_time = 100 - defect_percent_real_time
-
-                            if clean_percent_real_time >= CLEAN_THRESHOLD:
-                                self.state = State.TRACKING_DECIDED_CLEAN
-
-                                self.display_not_clean = (
-                                    False  # No need to display "Not Clean"
+                    # ------------------------
+                    # 4) Detect ending edge
+                    # ------------------------
+                    if self.state == State.TRACKING_SCANNING:
+                        bedsheet_results = bedsheet_model.predict(
+                            source=frame_resized, conf=CONF_THRESHOLD, verbose=False
+                        )
+                        y2_positions = []
+                        for result in bedsheet_results:
+                            if result.boxes:
+                                boxes, classes, confidences = (
+                                    result.boxes.xyxy,
+                                    result.boxes.cls,
+                                    result.boxes.conf,
                                 )
-                                self.write_decision_to_file(ACCEPT)
-                                # Log cleanliness analysis
-                                analysis_message = (
-                                    f"Threshold: {CLEAN_THRESHOLD}%, "
-                                    f"Bedsheet {self.bedsheet_count + 1}: Clean. "
-                                    f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                )
-                                log_print(f"{self.side} camera: {analysis_message}")
+                                for idx, class_id in enumerate(classes):
+                                    if (
+                                        int(class_id) == 0
+                                        and confidences[idx] > CONF_THRESHOLD
+                                    ):
+                                        x1, y1, x2, y2 = map(int, boxes[idx])
+                                        y2_positions.append(y2)
 
-                                # Decision for "Clean"
-                                decision = "Accepted"
-                                log_to_mongo(
-                                    self.collection,
-                                    self.bedsheet_count + 1,
-                                    defect_percent_real_time,
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                update_history(
-                                    self.history_collection,
-                                    get_current_date_str(),
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                log_print(
-                                    f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Clean'"
-                                )
-                                self.bedsheet_count += 1  # Increment bedsheet number
+                        if y2_positions:
+                            y2_max = max(y2_positions)
+                            if y2_max < frame_height * 0.90:  # Ending edge detected
+                                # If tear_detected is True, auto reject
+                                if self.tear_detected:
+                                    self.state = (
+                                        State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                    )
+                                    self.await_ending_edge = True
+                                    self.display_not_clean = True
+                                    self.write_decision_to_file(REJECT)
+                                    log_print(
+                                        f"{self.side} camera: Tear present at ending edge -> Rejected."
+                                    )
 
-                                # Reset area calculations but continue tracking until ending edge
-                                self.reset_defect_tracking_variables()
+                                    # Optional: Log tear event as you do with defect data
+                                    defect_percent_real_time = (
+                                        (self.total_defect_area / DEFAULT_BEDSHEET_AREA)
+                                        * 100
+                                        if DEFAULT_BEDSHEET_AREA > 0
+                                        else 0
+                                    )
+                                    decision = "Rejected"
+                                    log_to_mongo(
+                                        self.collection,
+                                        self.bedsheet_count + 1,
+                                        defect_percent_real_time,
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    update_history(
+                                        self.history_collection,
+                                        get_current_date_str(),
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    self.bedsheet_count += 1
+                                    self.reset_defect_tracking_variables()
 
-                                log_print(
-                                    f"{self.side} camera: Ending Edge Detected and Counted as Clean"
-                                )
-
-                            else:
-                                # If clean percent is still below threshold upon ending edge
-                                self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-
-                                self.await_ending_edge = True
-                                self.display_not_clean = True
-                                self.write_decision_to_file(REJECT)
-
-                                # Log cleanliness analysis
-                                analysis_message = (
-                                    f"Threshold: {CLEAN_THRESHOLD}%, "
-                                    f"Bedsheet {self.bedsheet_count + 1}: Not Clean at Ending Edge. "
-                                    f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                )
-                                log_print(f"{self.side} camera: {analysis_message}")
-
-                                # Decision for "Not Clean"
-                                decision = "Rejected"
-                                log_to_mongo(
-                                    self.collection,
-                                    self.bedsheet_count + 1,
-                                    defect_percent_real_time,
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                update_history(
-                                    self.history_collection,
-                                    get_current_date_str(),
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                log_print(
-                                    f"{self.side} camera: Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
-                                )
-                                self.bedsheet_count += 1  # Increment bedsheet number
-
-                                # Reset area calculations but continue tracking until ending edge
-                                self.reset_defect_tracking_variables()
+                                else:
+                                    # Usual checks if no tear detected
+                                    defect_percent_real_time = (
+                                        (self.total_defect_area / DEFAULT_BEDSHEET_AREA)
+                                        * 100
+                                        if DEFAULT_BEDSHEET_AREA > 0
+                                        else 0
+                                    )
+                                    clean_percent_real_time = (
+                                        100 - defect_percent_real_time
+                                    )
+                                    if clean_percent_real_time >= CLEAN_THRESHOLD:
+                                        self.state = State.TRACKING_DECIDED_CLEAN
+                                        self.display_not_clean = False
+                                        self.write_decision_to_file(ACCEPT)
+                                        analysis = (
+                                            f"Threshold: {CLEAN_THRESHOLD}%, "
+                                            f"Bedsheet {self.bedsheet_count + 1}: Clean. "
+                                            f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                            f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                        )
+                                        log_print(f"{self.side} camera: {analysis}")
+                                        decision = "Accepted"
+                                        log_to_mongo(
+                                            self.collection,
+                                            self.bedsheet_count + 1,
+                                            defect_percent_real_time,
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        update_history(
+                                            self.history_collection,
+                                            get_current_date_str(),
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        self.bedsheet_count += 1
+                                        self.reset_defect_tracking_variables()
+                                        log_print(
+                                            f"{self.side} camera: Bedsheet Counted as Clean at Ending Edge"
+                                        )
+                                    else:
+                                        self.state = (
+                                            State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                        )
+                                        self.await_ending_edge = True
+                                        self.display_not_clean = True
+                                        self.write_decision_to_file(REJECT)
+                                        analysis = (
+                                            f"Threshold: {CLEAN_THRESHOLD}%, "
+                                            f"Bedsheet {self.bedsheet_count + 1}: Not Clean. "
+                                            f"Dirty Percent: {defect_percent_real_time:.2f}%"
+                                        )
+                                        log_print(f"{self.side} camera: {analysis}")
+                                        decision = "Rejected"
+                                        log_to_mongo(
+                                            self.collection,
+                                            self.bedsheet_count + 1,
+                                            defect_percent_real_time,
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        update_history(
+                                            self.history_collection,
+                                            get_current_date_str(),
+                                            CLEAN_THRESHOLD,
+                                            decision,
+                                        )
+                                        self.bedsheet_count += 1
+                                        self.reset_defect_tracking_variables()
 
                 elif self.state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
                     # Await ending edge detection
                     bedsheet_results = bedsheet_model.predict(
                         source=frame_resized, conf=CONF_THRESHOLD, verbose=False
                     )
-                    bedsheet_present = False
                     y2_positions = []
-
                     for result in bedsheet_results:
                         if result.boxes:
                             boxes, classes, confidences = (
@@ -518,8 +599,10 @@ class CameraProcessor:
                                 result.boxes.conf,
                             )
                             for idx, class_id in enumerate(classes):
-                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
-                                    bedsheet_present = True
+                                if (
+                                    int(class_id) == 0
+                                    and confidences[idx] > CONF_THRESHOLD
+                                ):
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
 
@@ -530,25 +613,22 @@ class CameraProcessor:
                             self.await_ending_edge = False
                             self.display_not_clean = False
                             log_print(
-                                f"{self.side} camera: Transitioned to IDLE: Ending edge detected after Not Clean decision."
+                                f"{self.side} camera: Transitioned to IDLE after Not Clean decision."
                             )
 
-                # Display defect percentage and clean percentage if active
+                # Display cleanliness info if actively scanning
                 if self.state in [
                     State.TRACKING_SCANNING,
                     State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
                 ]:
-                    # Calculate defect percent and clean percent
                     if DEFAULT_BEDSHEET_AREA > 0:
                         defect_percent = (
                             self.total_defect_area / DEFAULT_BEDSHEET_AREA
                         ) * 100
-                        clean_percent = 100 - defect_percent
                     else:
                         defect_percent = 0.0
-                        clean_percent = 100.0
+                    clean_percent = 100 - defect_percent
 
-                    # Display cleanliness status if not already classified as Not Clean or Clean
                     if self.state not in [
                         State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
                         State.TRACKING_DECIDED_CLEAN,
@@ -567,23 +647,21 @@ class CameraProcessor:
                             2,
                         )
 
-                # Handle display of "Not Clean" message
+                # Handle "Not Clean" message
                 if (
                     self.display_not_clean
                     and self.state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
                 ):
                     log_print(f"{self.side} camera: Cleanliness: Not Clean")
-                    # Transition to IDLE after logging
                     self.state = State.IDLE
                     self.display_not_clean = False
-                    self.await_ending_edge = False  # Reset await flag for next bedsheet
+                    self.await_ending_edge = False
 
-                # Handle display of "Clean" message
+                # Handle "Clean" message
                 if self.state == State.TRACKING_DECIDED_CLEAN:
                     log_print(f"{self.side} camera: Cleanliness: Clean")
-                    # Transition to IDLE after logging
                     self.state = State.IDLE
-                    self.await_ending_edge = False  # Reset await flag for next bedsheet
+                    self.await_ending_edge = False
 
                 # Update latest_frame for streaming
                 with self.frame_lock:
@@ -591,11 +669,12 @@ class CameraProcessor:
 
             except Exception as e:
                 self.defect_tracking_error = True
-                error_code=1017
+                error_code = 1017
                 log_bug(
-                    f"{self.side} camera: Error during detect processing. Exception: {e}(Error code: {error_code})"
-                )        
+                    f"{self.side} camera: Error during detect processing. Exception: {e} (Error code: {error_code})"
+                )
                 self.frame_counter += 1
+
         # Update the previous frame for the next iteration
         self.previous_frame = frame.copy()
 
@@ -625,9 +704,11 @@ class StitchedCameraProcessor:
         self.horizontal_collection = get_daily_collection_hor(self.db)
         # Fetch last bedsheet number and threshold
         self.bedsheet_count = get_last_bedsheet_number_hor(self.horizontal_collection)
-        
+
         global CLEAN_THRESHOLD
-        CLEAN_THRESHOLD = get_last_threshold_hor(self.threshold_collection, self.history_collection_hor)
+        CLEAN_THRESHOLD = get_last_threshold_hor(
+            self.threshold_collection, self.history_collection_hor
+        )
         print(f"Initialized horizontal camera with threshold: {CLEAN_THRESHOLD}")
 
         initialize_history_document_hor(
@@ -654,7 +735,6 @@ class StitchedCameraProcessor:
         CLEAN_THRESHOLD = new_threshold  # Update the global threshold
         print(f"Updated stitched camera threshold to: {CLEAN_THRESHOLD}")
 
-
     def start(self):
         """Start the main loop for stitching frames."""
         self.is_active = True
@@ -674,36 +754,75 @@ class StitchedCameraProcessor:
         self.defect_max_areas.clear()
 
     def main_loop(self):
-        """Main loop for capturing and processing frames."""
+        """
+        Main loop handling horizontal-mode processing, including attempts to reconnect
+        if either left or right camera is disconnected.
+        """
         while self.is_active and not self.stop_event.is_set():
             try:
+                # Run horizontal processing only if process_mode is set to 'horizontal'
                 if self.process_mode == "horizontal":
-                    # Only run detection if enabled
                     if self.detection_enabled:
+                        # Attempt to get frames from both left and right cameras
                         left_frame = self.camera_manager.get_frame("left")
                         right_frame = self.camera_manager.get_frame("right")
 
+                        # Briefly wait if any frame is None (possible transient delay)
+                        if left_frame is None or right_frame is None:
+                            time.sleep(0.1)
+
+                            # Try one more time
+                            if left_frame is None:
+                                left_frame = self.camera_manager.get_frame("left")
+                            if right_frame is None:
+                                right_frame = self.camera_manager.get_frame("right")
+
+                            # If still None, treat it as a disconnect and reconnect indefinitely
+                            while left_frame is None or right_frame is None:
+                                if left_frame is None:
+                                    log_print(
+                                        "Left camera: No frame received. Attempting reconnection..."
+                                    )
+                                    self.camera_manager.reconnect_camera("left")
+                                if right_frame is None:
+                                    log_print(
+                                        "Right camera: No frame received. Attempting reconnection..."
+                                    )
+                                    self.camera_manager.reconnect_camera("right")
+
+                                time.sleep(self.reconnect_delay)
+
+                                # Test frames again after reconnect
+                                left_frame = self.camera_manager.get_frame("left")
+                                right_frame = self.camera_manager.get_frame("right")
+
+                        # Now that both frames are presumably available, stitch and detect
                         if left_frame is not None and right_frame is not None:
                             stitched_frame = self.stitch_frames(left_frame, right_frame)
                             if stitched_frame is not None:
+                                # Update the latest frame reference (thread-safe)
                                 with self.frame_lock:
                                     self.latest_frame = stitched_frame
-                                # Run detection on the stitched frame
+
+                                # Run horizontal detection on the stitched frame
                                 self.detect_horizontal(stitched_frame)
+
                 else:
-                    time.sleep(0.1)  # Sleep to avoid busy waiting
+                    # If not in horizontal mode, or detection is not needed, avoid busy-wait
+                    time.sleep(0.1)
+
             except Exception as e:
-                error_code=1018
-                log_print(f"Error in stitched camera processing: {e}(Error code: {error_code})")
+                error_code = 1018
+                print(
+                    f"Error in stitched camera processing: {e} (Error code: {error_code})"
+                )
 
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
         try:
-            #left_frame_resized = cv2.resize(left_frame, (640, 480))
-            #right_frame_resized = cv2.resize(right_frame, (640, 480))
-            stitched_frame = np.concatenate(
-                [left_frame, right_frame], axis=1
-            )
+            # left_frame_resized = cv2.resize(left_frame, (640, 480))
+            # right_frame_resized = cv2.resize(right_frame, (640, 480))
+            stitched_frame = np.concatenate([left_frame, right_frame], axis=1)
             return stitched_frame
         except Exception as e:
             logging.error(f"Error stitching frames: {e}")
@@ -717,7 +836,7 @@ class StitchedCameraProcessor:
         Uses ACCEPT and REJECT from config.
         """
         # Define the writable directory for bug logs
-        log_dir = os.path.join(os.getenv('HOME'), "LISA_LOGS")
+        log_dir = os.path.join(os.getenv("HOME"), "LISA_LOGS")
         os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
 
         # Determine the decision value from config
@@ -728,54 +847,129 @@ class StitchedCameraProcessor:
             try:
                 # Write the decision to the file
                 with open(decision_file, "w") as file:
-                    file.write(str(decision_value))  # Write the corresponding value (True/False or 1/0)
+                    file.write(
+                        str(decision_value)
+                    )  # Write the corresponding value (True/False or 1/0)
                 print(f"Decision for {side} camera written to {decision_file}.")
             except Exception as e:
                 print(f"Failed to write decision for {side} camera: {e}")
 
-    def detect_horizontal(self, stitched_frame):
-        global CLEAN_THRESHOLD  # Access the global variable
 
-        # Check if the previous frame is None
+    def detect_horizontal(self, stitched_frame):
+        """
+        Detects the presence of a horizontally laid bedsheet, tracks defects, and
+        flags a tear if found. If a tear is detected after the bedsheet start,
+        the bedsheet will be automatically rejected at the ending edge.
+
+        Global variables, helper functions, and logging mechanisms (e.g., CLEAN_THRESHOLD,
+        DEFAULT_BEDSHEET_AREA, log_print, log_bug) are assumed to exist.
+        """
+
+        global CLEAN_THRESHOLD  # Use a global threshold variable for cleanliness
+
+        # 1. Initialize previous frame if needed
         if self.previous_frame is None:
             self.previous_frame = stitched_frame.copy()
-            return  # Skip processing until we have a previous frame
+            return  # Skip detection until we have an initial previous frame
 
-        # Ensure both frames are of the same size
+        # 2. Check for frame size mismatch
         if self.previous_frame.shape != stitched_frame.shape:
-            error_code=1014
+            error_code = 1014
             log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, current_frame {stitched_frame.shape}(Error code: {error_code})"
+                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, "
+                f"current_frame {stitched_frame.shape}(Error code: {error_code})"
             )
             return
-        # Get video properties
+
+        # 3. Prepare the current frame
         frame_resized = stitched_frame
         frame_height = frame_resized.shape[0]
 
-        # Initialize bedsheet presence flags for display
+        # 4. Initialize flags and counters
         bedsheet_present = False
-        y1_positions = []
-        y2_positions = []
+        y1_positions, y2_positions = [], []
 
+        # ----------------------------------------------------------------
+        # Tear detection setup: once this is True, skip further defect checks
+        # ----------------------------------------------------------------
+        if not hasattr(self, "tear_detected"):
+            self.tear_detected = False  # Create tear_detected attribute if missing
 
         # Reset error state after 100 frames
         if self.defect_tracking_error and self.frame_counter >= 100:
             self.defect_tracking_error = False
             self.frame_counter = 0
 
-        # Perform defect tracking if no error
+        # 5. Main logic only runs if there's no active defect-tracking error
         if not self.defect_tracking_error:
-            # FSM Logic
             try:
-                if self.state == State.IDLE:
-                    if hor_bedsheet_model:  # Check if hor_bedsheet_model is loaded
-                        try:
-                            # Detect starting edge to transition from IDLE to TRACKING_SCANNING
-                            bedsheet_results = hor_bedsheet_model.predict(
-                                source=frame_resized, conf=CONF_THRESHOLD, verbose=False
-                            )
+                # ----------------------------------------------------
+                # STATE: IDLE (Detect Start of Bedsheet)
+                # ----------------------------------------------------
+                if self.state == State.IDLE and hor_bedsheet_model:
+                    try:
+                        bedsheet_results = hor_bedsheet_model.predict(
+                            source=frame_resized, conf=CONF_THRESHOLD, verbose=False
+                        )
 
-                            for result in bedsheet_results:
+                        for result in bedsheet_results:
+                            if result.boxes:
+                                boxes, classes, confidences = (
+                                    result.boxes.xyxy,
+                                    result.boxes.cls,
+                                    result.boxes.conf,
+                                )
+                                for idx, class_id in enumerate(classes):
+                                    # 'class_id == 0' means bedsheet
+                                    if (
+                                        int(class_id) == 0
+                                        and confidences[idx] > CONF_THRESHOLD
+                                    ):
+                                        bedsheet_present = True
+                                        x1, y1, x2, y2 = map(int, boxes[idx])
+                                        cv2.rectangle(
+                                            frame_resized,
+                                            (x1, y1),
+                                            (x2, y2),
+                                            (0, 255, 0),
+                                            2,
+                                        )
+                                        y1_positions.append(y1)
+                                        y2_positions.append(y2)
+
+                                        if y1 > frame_height * 0.75:
+                                            # Transition to TRACKING_SCANNING
+                                            self.state = State.TRACKING_SCANNING
+                                            self.reset_defect_tracking_variables()
+                                            self.await_ending_edge = False
+                                            self.display_not_clean = False
+                                            self.tear_detected = False  # Reset tear flag
+                                            log_print(
+                                                "Transitioned to TRACKING_SCANNING: Starting edge detected."
+                                            )
+                                            break
+
+                    except Exception as e:
+                        error_code = 1015
+                        log_bug(
+                            f"Error during bedsheet detection. Exception: {e}(Error code: {error_code})"
+                        )
+                        log_print("Skipping bedsheet detection due to an error.")
+
+                # ----------------------------------------------------
+                # STATE: TRACKING_SCANNING (Detect Defects + Tears)
+                # ----------------------------------------------------
+                elif self.state == State.TRACKING_SCANNING:
+
+                    # 1) Check for tear first (if not already detected)
+                    if not self.tear_detected and tear_model:  # Ensure tear_model is loaded
+                        try:
+                            tear_results = tear_model.predict(
+                                source=frame_resized,
+                                conf=TEAR_CONF_THRESHOLD,
+                                verbose=False,
+                            )
+                            for result in tear_results:
                                 if result.boxes:
                                     boxes, classes, confidences = (
                                         result.boxes.xyxy,
@@ -783,51 +977,25 @@ class StitchedCameraProcessor:
                                         result.boxes.conf,
                                     )
                                     for idx, class_id in enumerate(classes):
+                                        # Suppose tear class is 0 (adjust as needed for your model)
                                         if (
                                             int(class_id) == 0
-                                            and confidences[idx] > CONF_THRESHOLD
+                                            and confidences[idx] > TEAR_CONF_THRESHOLD
                                         ):
-                                            bedsheet_present = True
-                                            x1, y1, x2, y2 = map(int, boxes[idx])
-                                            cv2.rectangle(
-                                                frame_resized,
-                                                (x1, y1),
-                                                (x2, y2),
-                                                (0, 255, 0),
-                                                2,
-                                            )
-                                            y1_positions.append(y1)
-                                            y2_positions.append(y2)
-
-                                            if (
-                                                y1 > frame_height * 0.75
-                                            ):  # Starting edge detected
-                                                self.state = State.TRACKING_SCANNING
-                                                self.reset_defect_tracking_variables()
-                                                self.await_ending_edge = (
-                                                    False  # Reset await flag
-                                                )
-                                                self.display_not_clean = False
-                                                log_print(
-                                                    "Transitioned to TRACKING_SCANNING: Starting edge detected."
-                                                )
-                                                break  # Assuming one bedsheet per frame
-
-                            #log_print(
-                            #    "Bedsheet Present"
-                            #    if bedsheet_present
-                            #    else "Bedsheet Not Present"
-                            #)
+                                            self.tear_detected = True
+                                            log_print("Tear detected!")
+                                            break
                         except Exception as e:
-                            error_code=1015
-                            log_bug(f"Error during bedsheet detection. Exception: {e}(Error code: {error_code})")
-                            log_print("Skipping bedsheet detection due to an error.")
+                            error_code = 1018
+                            log_bug(
+                                f"Tear detection error. Exception: {e}(Error code: {error_code})"
+                            )
 
-                elif self.state == State.TRACKING_SCANNING and defect_model:
-                    if defect_model:  # Check if defect_model is loaded
+                    # 2) If no tear is detected yet, run defect detection
+                    defect_results = None
+                    if not self.tear_detected and defect_model:
                         if not self.defect_tracking_error:
                             try:
-                                # Perform defect tracking
                                 defect_results = defect_model.track(
                                     source=frame_resized,
                                     conf=DEFECT_CONF_THRESHOLD,
@@ -837,27 +1005,18 @@ class StitchedCameraProcessor:
                                 )
                             except Exception as e:
                                 self.defect_tracking_error = True
-                                defect_results = (
-                                    None  # Ensure defect_results is defined
-                                )
-                                error_code=1016
+                                defect_results = None
+                                error_code = 1016
                                 log_bug(
                                     f"Defect tracking error occurred. Exception: {e}(Error code: {error_code})"
                                 )
-                                log_print(
-                                    "Skipping defect detection due to an error. Feed will continue running."
-                                )
+                                log_print("Skipping defect detection due to an error.")
                         else:
-                            defect_results = None  # Ensure defect_results is defined
-                            log_print(
-                                "Skipping defect detection as an error was previously encountered."
-                            )
-                    else:
-                        defect_results = None  # Ensure defect_results is defined
-                        log_print("Defect detection skipped. Model not loaded.")
+                            log_print("Skipping defect detection due to a prior error.")
+                    # else: no defect detection if tear was found
 
-                    if defect_results and (self.state == State.TRACKING_SCANNING):
-                        # Count defects only within the bedsheet region
+                    # 3) Update defect tracking if no tear was found
+                    if defect_results and not self.tear_detected:
                         for defect_result in defect_results:
                             masks = defect_result.masks
                             tracks = (
@@ -867,40 +1026,24 @@ class StitchedCameraProcessor:
                             )
 
                             if masks is not None and tracks is not None:
-                                mask_array = masks.data
-                                for j, mask in enumerate(mask_array):
+                                for j, mask in enumerate(masks.data):
                                     defect_mask = mask.cpu().numpy()
                                     defect_id = tracks[j]
-                                    defect_area = np.sum(
-                                        defect_mask
-                                    )  # Calculate defect area as the sum of mask pixels
+                                    defect_area = np.sum(defect_mask)
 
-                                    # Track unique defect IDs for the current bedsheet
                                     self.unique_defect_ids.add(defect_id)
-
-                                    # Check if this defect ID already exists in defect_max_areas
                                     if defect_id in self.defect_max_areas:
-                                        # Only update if the new area is larger than the last maximum area
-                                        if (
-                                            defect_area
-                                            > self.defect_max_areas[defect_id]
-                                        ):
-                                            # Adjust total_defect_area to account for the increase
+                                        if defect_area > self.defect_max_areas[defect_id]:
                                             self.total_defect_area += (
                                                 defect_area
                                                 - self.defect_max_areas[defect_id]
                                             )
-                                            # Update the maximum area for this defect ID
-                                            self.defect_max_areas[defect_id] = (
-                                                defect_area
-                                            )
+                                            self.defect_max_areas[defect_id] = defect_area
                                     else:
-                                        # New defect ID: add its area to total_defect_area and store it
                                         self.defect_max_areas[defect_id] = defect_area
                                         self.total_defect_area += defect_area
 
-                                    # **Draw Bounding Boxes Around Defects**
-                                    # Check if bounding box coordinates are available
+                                    # Draw bounding box if available
                                     if (
                                         hasattr(defect_result.boxes, "xyxy")
                                         and len(defect_result.boxes.xyxy) > j
@@ -908,15 +1051,13 @@ class StitchedCameraProcessor:
                                         x1_d, y1_d, x2_d, y2_d = (
                                             defect_result.boxes.xyxy[j].int().tolist()
                                         )
-                                        # Draw rectangle around defect
                                         cv2.rectangle(
                                             frame_resized,
                                             (x1_d, y1_d),
                                             (x2_d, y2_d),
-                                            (0, 0, 255),  # Red color for defects
+                                            (0, 0, 255),
                                             2,
                                         )
-                                        # Annotate defect ID
                                         cv2.putText(
                                             frame_resized,
                                             f"ID: {defect_id}",
@@ -927,7 +1068,9 @@ class StitchedCameraProcessor:
                                             1,
                                         )
 
-                # Detect ending edge to transition to IDLE or other states
+                # ----------------------------------------------------
+                # DETECT ENDING EDGE IF STILL TRACKING
+                # ----------------------------------------------------
                 if self.state == State.TRACKING_SCANNING:
                     bedsheet_results = hor_bedsheet_model.predict(
                         source=frame_resized, conf=CONF_THRESHOLD, verbose=False
@@ -943,83 +1086,33 @@ class StitchedCameraProcessor:
                                 result.boxes.conf,
                             )
                             for idx, class_id in enumerate(classes):
-                                if (
-                                    int(class_id) == 0
-                                    and confidences[idx] > CONF_THRESHOLD
-                                ):
+                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
                                     bedsheet_present = True
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
 
                     if y2_positions:
                         y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:  # Ending edge detected
-                            # Clean decision upon ending edge detection
-                            defect_percent_real_time = (
-                                self.total_defect_area / DEFAULT_BEDSHEET_AREA
-                            ) * 100
-                            clean_percent_real_time = 100 - defect_percent_real_time
-
-                            if clean_percent_real_time >= CLEAN_THRESHOLD:
-                                self.state = State.TRACKING_DECIDED_CLEAN
-
-                                self.display_not_clean = (
-                                    False  # No need to display "Not Clean"
-                                )
-                                self.write_decision_to_file(ACCEPT)
-
-                                # Log cleanliness analysis
-                                analysis_message = (
-                                    f"Threshold: {CLEAN_THRESHOLD}%, "
-                                    f"Bedsheet {self.bedsheet_count + 1}: Clean. "
-                                    f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent: {clean_percent_real_time:.2f}%"
-                                )
-                                log_print(f"{analysis_message}")
-
-                                # Decision for "Clean"
-                                decision = "Accepted"
-                                log_to_horizontal(
-                                    self.horizontal_collection,
-                                    self.bedsheet_count + 1,
-                                    defect_percent_real_time,
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                update_history_hor(
-                                    self.history_collection_hor,
-                                    get_current_date_str(),
-                                    CLEAN_THRESHOLD,
-                                    decision,
-                                )
-                                log_print(
-                                    f"Bedsheet {self.bedsheet_count + 1} logged as 'Clean'"
-                                )
-                                self.bedsheet_count += 1  # Increment bedsheet number
-
-                                # Reset area calculations but continue tracking until ending edge
-                                self.reset_defect_tracking_variables()
-
-                                log_print("Ending Edge Detected and Counted as Clean")
-
-                            else:
-                                # If clean percent is still below threshold upon ending edge
+                        # If ending edge is detected
+                        if y2_max < frame_height * 0.90:
+                            # If tear_detected is True, auto reject
+                            if self.tear_detected:
                                 self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
-
                                 self.await_ending_edge = True
                                 self.display_not_clean = True
                                 self.write_decision_to_file(REJECT)
 
-                                # Log cleanliness analysis
-                                analysis_message = (
-                                    f"Threshold: {CLEAN_THRESHOLD}%, "
-                                    f"Bedsheet {self.bedsheet_count + 1}: Not Clean at Ending Edge. "
-                                    f"Dirty Percent: {defect_percent_real_time:.2f}%, "
-                                    f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                defect_percent_real_time = (
+                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
+                                    if DEFAULT_BEDSHEET_AREA > 0
+                                    else 0
                                 )
-                                log_print(f"{analysis_message}")
+                                clean_percent_real_time = 100 - defect_percent_real_time
 
-                                # Decision for "Not Clean"
+                                log_print(
+                                    f"Tear present at ending edge -> Rejected. Defect %: {defect_percent_real_time:.2f}%, Clean %: {clean_percent_real_time:.2f}%"
+                                )
+
                                 decision = "Rejected"
                                 log_to_horizontal(
                                     self.horizontal_collection,
@@ -1035,15 +1128,91 @@ class StitchedCameraProcessor:
                                     decision,
                                 )
                                 log_print(
-                                    f"Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
+                                    f"Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean (Tear)'"
                                 )
-                                self.bedsheet_count += 1  # Increment bedsheet number
-
-                                # Reset area calculations but continue tracking until ending edge
+                                self.bedsheet_count += 1
                                 self.reset_defect_tracking_variables()
+                            else:
+                                # Normal clean vs. not clean decision
+                                defect_percent_real_time = (
+                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
+                                    if DEFAULT_BEDSHEET_AREA > 0
+                                    else 0
+                                )
+                                clean_percent_real_time = 100 - defect_percent_real_time
 
+                                if clean_percent_real_time >= CLEAN_THRESHOLD:
+                                    self.state = State.TRACKING_DECIDED_CLEAN
+                                    self.display_not_clean = False
+                                    self.write_decision_to_file(ACCEPT)
+
+                                    analysis_message = (
+                                        f"Threshold: {CLEAN_THRESHOLD}%, "
+                                        f"Bedsheet {self.bedsheet_count + 1}: Clean. "
+                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                    )
+                                    log_print(analysis_message)
+
+                                    decision = "Accepted"
+                                    log_to_horizontal(
+                                        self.horizontal_collection,
+                                        self.bedsheet_count + 1,
+                                        defect_percent_real_time,
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    update_history_hor(
+                                        self.history_collection_hor,
+                                        get_current_date_str(),
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    log_print(
+                                        f"Bedsheet {self.bedsheet_count + 1} logged as 'Clean'"
+                                    )
+                                    self.bedsheet_count += 1
+                                    self.reset_defect_tracking_variables()
+                                    log_print("Ending Edge Detected and Counted as Clean")
+                                else:
+                                    self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                    self.await_ending_edge = True
+                                    self.display_not_clean = True
+                                    self.write_decision_to_file(REJECT)
+
+                                    analysis_message = (
+                                        f"Threshold: {CLEAN_THRESHOLD}%, "
+                                        f"Bedsheet {self.bedsheet_count + 1}: Not Clean at Ending Edge. "
+                                        f"Dirty Percent: {defect_percent_real_time:.2f}%, "
+                                        f"Clean Percent: {clean_percent_real_time:.2f}%"
+                                    )
+                                    log_print(analysis_message)
+
+                                    decision = "Rejected"
+                                    log_to_horizontal(
+                                        self.horizontal_collection,
+                                        self.bedsheet_count + 1,
+                                        defect_percent_real_time,
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    update_history_hor(
+                                        self.history_collection_hor,
+                                        get_current_date_str(),
+                                        CLEAN_THRESHOLD,
+                                        decision,
+                                    )
+                                    log_print(
+                                        f"Bedsheet {self.bedsheet_count + 1} logged as 'Not Clean'"
+                                    )
+                                    self.bedsheet_count += 1
+                                    self.reset_defect_tracking_variables()
+
+                # ----------------------------------------------------
+                # STATE: TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                # ----------------------------------------------------
                 elif self.state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE:
-                    # Await ending edge detection
+                    # Wait for the bedsheet to fully exit
                     bedsheet_results = hor_bedsheet_model.predict(
                         source=frame_resized, conf=CONF_THRESHOLD, verbose=False
                     )
@@ -1058,17 +1227,14 @@ class StitchedCameraProcessor:
                                 result.boxes.conf,
                             )
                             for idx, class_id in enumerate(classes):
-                                if (
-                                    int(class_id) == 0
-                                    and confidences[idx] > CONF_THRESHOLD
-                                ):
+                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
                                     bedsheet_present = True
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
 
                     if y2_positions:
                         y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:  # Ending edge detected
+                        if y2_max < frame_height * 0.90:
                             self.state = State.IDLE
                             self.await_ending_edge = False
                             self.display_not_clean = False
@@ -1076,12 +1242,13 @@ class StitchedCameraProcessor:
                                 "Transitioned to IDLE: Ending edge detected after Not Clean decision."
                             )
 
-                # Display defect percentage and clean percentage if active
+                # ----------------------------------------------------
+                # DISPLAY CLEANLINESS INFO IF STILL ACTIVE
+                # ----------------------------------------------------
                 if self.state in [
                     State.TRACKING_SCANNING,
                     State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
                 ]:
-                    # Calculate defect percent and clean percent
                     if DEFAULT_BEDSHEET_AREA > 0:
                         defect_percent = (
                             self.total_defect_area / DEFAULT_BEDSHEET_AREA
@@ -1091,7 +1258,6 @@ class StitchedCameraProcessor:
                         defect_percent = 0.0
                         clean_percent = 100.0
 
-                    # Display cleanliness status if not already classified as Not Clean or Clean
                     if self.state not in [
                         State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE,
                         State.TRACKING_DECIDED_CLEAN,
@@ -1110,23 +1276,22 @@ class StitchedCameraProcessor:
                             2,
                         )
 
-                # Handle display of "Not Clean" message
+                # ----------------------------------------------------
+                # HANDLE "Not Clean" & "Clean" MESSAGES
+                # ----------------------------------------------------
                 if (
                     self.display_not_clean
                     and self.state == State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
                 ):
                     log_print("Cleanliness: Not Clean")
-                    # Transition to IDLE after logging
                     self.state = State.IDLE
                     self.display_not_clean = False
-                    self.await_ending_edge = False  # Reset await flag for next bedsheet
+                    self.await_ending_edge = False
 
-                # Handle display of "Clean" message
                 if self.state == State.TRACKING_DECIDED_CLEAN:
                     log_print("Cleanliness: Clean")
-                    # Transition to IDLE after logging
                     self.state = State.IDLE
-                    self.await_ending_edge = False  # Reset await flag for next bedsheet
+                    self.await_ending_edge = False
 
                 # Update latest_frame for streaming
                 with self.frame_lock:
@@ -1134,10 +1299,13 @@ class StitchedCameraProcessor:
 
             except Exception as e:
                 self.defect_tracking_error = True
-                error_code=1016
-                log_bug(f"Defect tracking error occurred. Exception: {e}(Error code: {error_code})")
+                error_code = 1016
+                log_bug(
+                    f"Defect tracking error occurred. Exception: {e}(Error code: {error_code})"
+                )
                 self.frame_counter += 1
-        # Update the previous frame for the next iteration
+
+        # 6. Update the previous frame
         self.previous_frame = stitched_frame.copy()
 
 
@@ -1184,9 +1352,7 @@ async def update_threshold(request: Request):
                 get_current_date_str(),
                 CLEAN_THRESHOLD,
             )
-            log_threshold_change(
-                camera_processor.threshold_collection, CLEAN_THRESHOLD
-            )
+            log_threshold_change(camera_processor.threshold_collection, CLEAN_THRESHOLD)
 
         return JSONResponse(content={"message": "Threshold updated successfully."})
     else:
@@ -1194,17 +1360,14 @@ async def update_threshold(request: Request):
             content={"error": "Invalid threshold value."}, status_code=400
         )
 
+
 @app.get("/get_current_threshold/{mode}")
 async def get_current_threshold(mode: str):
     if mode == "horizontal":
-        return {
-            "threshold": CLEAN_THRESHOLD
-        }
+        return {"threshold": CLEAN_THRESHOLD}
     elif mode == "vertical":
         threshold = CLEAN_THRESHOLD
-        return {
-            "threshold": threshold
-        }
+        return {"threshold": threshold}
     else:
         camera_processor = camera_processors[mode]
         return {"threshold": CLEAN_THRESHOLD}
@@ -1257,6 +1420,7 @@ async def set_process_mode(mode: str):
 
     return {"message": f"Process mode set to {mode}"}
 
+
 @app.get("/frame_status/{mode}")
 async def frame_status(mode: str):
     if mode == "horizontal":
@@ -1272,11 +1436,14 @@ async def frame_status(mode: str):
     frame_available = camera_processor.latest_frame is not None
     return JSONResponse({"frame_available": frame_available})
 
+
 @app.get("/video_feed/{mode}")
 async def video_feed(mode: str):
     if mode == "horizontal":
         if stitched_camera_processor is None:
-            raise HTTPException(status_code=404, detail="Stitched camera processor not found")
+            raise HTTPException(
+                status_code=404, detail="Stitched camera processor not found"
+            )
         camera_processor = stitched_camera_processor
     else:
         if mode not in camera_processors:
@@ -1284,15 +1451,16 @@ async def video_feed(mode: str):
         camera_processor = camera_processors[mode]
 
     placeholder_frame = cv2.imencode(
-        ".jpg", cv2.putText(
+        ".jpg",
+        cv2.putText(
             np.zeros((480, 640, 3), dtype=np.uint8),
             "Waiting for frames...",
             (50, 240),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (255, 255, 255),
-            2
-        )
+            2,
+        ),
     )[1].tobytes()
 
     async def generate():
@@ -1303,8 +1471,7 @@ async def video_feed(mode: str):
                 # Send placeholder frame if no frame is available
                 yield (
                     b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n"
-                    + placeholder_frame + b"\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + placeholder_frame + b"\r\n"
                 )
                 await asyncio.sleep(0.1)  # Retry after delay
                 continue
@@ -1317,7 +1484,8 @@ async def video_feed(mode: str):
                     yield (
                         b"--frame\r\n"
                         b"Content-Type: image/jpeg\r\n\r\n"
-                        + placeholder_frame + b"\r\n"
+                        + placeholder_frame
+                        + b"\r\n"
                     )
                     await asyncio.sleep(0.1)
                     continue
@@ -1326,8 +1494,7 @@ async def video_feed(mode: str):
                 frame_bytes = buffer.tobytes()
                 yield (
                     b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n"
-                    + frame_bytes + b"\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
                 )
                 last_frame = frame  # Update last frame
             await asyncio.sleep(0.01)  # Adjust for performance if necessary
@@ -1432,7 +1599,9 @@ async def get_combined_monthly_analytics():
 
             try:
                 # Parse the date string to get the month and year
-                date_obj = datetime.strptime(date_str.strip(), "%Y-%m-%d")  # Strip any whitespace
+                date_obj = datetime.strptime(
+                    date_str.strip(), "%Y-%m-%d"
+                )  # Strip any whitespace
                 month_year = date_obj.strftime("%B %Y")  # Get month name and year
 
                 if month_year not in aggregated_data:
@@ -1442,7 +1611,9 @@ async def get_combined_monthly_analytics():
                         "rejected": 0,
                     }
 
-                aggregated_data[month_year]["total_bedsheets"] += item.get("total_bedsheets", 0)
+                aggregated_data[month_year]["total_bedsheets"] += item.get(
+                    "total_bedsheets", 0
+                )
                 aggregated_data[month_year]["accepted"] += item.get("total_accepted", 0)
                 aggregated_data[month_year]["rejected"] += item.get("total_rejected", 0)
 
@@ -1458,7 +1629,9 @@ async def get_combined_monthly_analytics():
 
             try:
                 # Parse the date string to get the month and year
-                date_obj = datetime.strptime(date_str.strip(), "%Y-%m-%d")  # Strip any whitespace
+                date_obj = datetime.strptime(
+                    date_str.strip(), "%Y-%m-%d"
+                )  # Strip any whitespace
                 month_year = date_obj.strftime("%B %Y")  # Get month name and year
 
                 if month_year not in aggregated_data:
@@ -1468,7 +1641,9 @@ async def get_combined_monthly_analytics():
                         "rejected": 0,
                     }
 
-                aggregated_data[month_year]["total_bedsheets"] += item.get("total_bedsheets", 0)
+                aggregated_data[month_year]["total_bedsheets"] += item.get(
+                    "total_bedsheets", 0
+                )
                 aggregated_data[month_year]["accepted"] += item.get("total_accepted", 0)
                 aggregated_data[month_year]["rejected"] += item.get("total_rejected", 0)
 
