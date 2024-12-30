@@ -15,8 +15,8 @@ import logo from './sakar.png'; // Import the logo image
 
 const App = () => {
 	// Always default to 'vertical' and do not store in localStorage
-	const [cameraLayout, setCameraLayout] = useState('vertical');
-	const [mode, setMode] = useState('vertical');
+	const [cameraLayout, setCameraLayout] = useState('horizontal');
+	const [mode, setMode] = useState('horizontal'); // Default to horizontal mode
 	const [acceptanceRate, setAcceptanceRate] = useState(null); // Default acceptance rate
 	const [speed, setSpeed] = useState(0); // State to store the current speed
 	const [loadingSpeed, setLoadingSpeed] = useState(true); // Loading state for speed

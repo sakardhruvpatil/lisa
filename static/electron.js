@@ -263,7 +263,7 @@ app.whenReady()
     .then(() => {
         startPlcIntegration();  // Start PLC Integration after backend
         console.log('PLC integration started.');
-        return new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for 15 seconds
+        return new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 15 seconds
     })
     .then(() => {
         startServer();  // Start the server after PLC integration

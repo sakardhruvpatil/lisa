@@ -72,6 +72,9 @@ class CameraProcessor:
         self.is_active = True  # Indicates if the processor is active
         self.stop_event = threading.Event()  # Initialize stop_event here
         self.detection_enabled = True  # Flag to control detection
+        self.main_loop_thread = None  # Initialize the main_loop_thread attribute
+        self.reconnect_delay = 5  # Default reconnect delay in seconds
+
         # Initialize additional attributes
         self.previous_frame = None  # To store the previous frame for optical flow
         self.frame_counter = 0  # Counter to manage error state resets
@@ -134,7 +137,7 @@ class CameraProcessor:
     def stop(self):
         self.stop_event.set()
         self.is_active = False
-        if self.main_loop_thread.is_alive():
+        if self.main_loop_thread is not None and self.main_loop_thread.is_alive():
             self.main_loop_thread.join()
 
     def reset_defect_tracking_variables(self):
@@ -190,21 +193,29 @@ class CameraProcessor:
                 if self.detection_enabled:
                     try:
                         self.process_frame(frame)
+                    except cv2.error as e:
+                        logging.error(f"OpenCV error processing frame for {self.side}: {e}")
+                        continue  # Skip this frame and continue
                     except Exception as e:
                         logging.error(f"Error processing frame for {self.side}: {e}")
+                        continue  # Skip this frame and continue
 
         except KeyboardInterrupt:
             self.stop()
             print(f"Stopping {self.side} camera.")
             print(f"Final bedsheet count for {self.side}: {self.bedsheet_count}")
             raise
+        except Exception as e:
+            logging.error(f"Unexpected error in main loop for {self.side}: {e}")
+            self.stop()
 
     def process_frame(self, img):
         # Process each side independently
         height, width, _ = img.shape
         # cropped = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
         # print(f"Cropped image shape: {img.shape}")  # Log the shape
-        self.detect(img)
+        resized = cv2.resize(img, (3840, 1200))
+        self.detect(resized)
 
     # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
@@ -690,6 +701,7 @@ class StitchedCameraProcessor:
         self.state = State.IDLE  # State management
         self.await_ending_edge = False
         self.display_not_clean = False
+        self.reconnect_delay = 5  # Default reconnect delay in seconds
 
         # Initialize defect tracking variables
         self.total_defect_area = 0
@@ -820,9 +832,9 @@ class StitchedCameraProcessor:
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
         try:
-            # left_frame_resized = cv2.resize(left_frame, (640, 480))
-            # right_frame_resized = cv2.resize(right_frame, (640, 480))
-            stitched_frame = np.concatenate([left_frame, right_frame], axis=1)
+            left_frame_resized = cv2.resize(left_frame, (1920, 1200))
+            right_frame_resized = cv2.resize(right_frame, (1920, 1200))
+            stitched_frame = np.concatenate([left_frame_resized, right_frame_resized], axis=1)
             return stitched_frame
         except Exception as e:
             logging.error(f"Error stitching frames: {e}")
@@ -853,7 +865,6 @@ class StitchedCameraProcessor:
                 print(f"Decision for {side} camera written to {decision_file}.")
             except Exception as e:
                 print(f"Failed to write decision for {side} camera: {e}")
-
 
     def detect_horizontal(self, stitched_frame):
         """
@@ -937,18 +948,19 @@ class StitchedCameraProcessor:
                                         y1_positions.append(y1)
                                         y2_positions.append(y2)
 
-                                        if y1 > frame_height * 0.75:
+                                        if y1 > frame_height * 0.80:
                                             # Transition to TRACKING_SCANNING
                                             self.state = State.TRACKING_SCANNING
                                             self.reset_defect_tracking_variables()
                                             self.await_ending_edge = False
                                             self.display_not_clean = False
-                                            self.tear_detected = False  # Reset tear flag
+                                            self.tear_detected = (
+                                                False  # Reset tear flag
+                                            )
                                             log_print(
                                                 "Transitioned to TRACKING_SCANNING: Starting edge detected."
                                             )
                                             break
-
                     except Exception as e:
                         error_code = 1015
                         log_bug(
@@ -962,7 +974,9 @@ class StitchedCameraProcessor:
                 elif self.state == State.TRACKING_SCANNING:
 
                     # 1) Check for tear first (if not already detected)
-                    if not self.tear_detected and tear_model:  # Ensure tear_model is loaded
+                    if (
+                        not self.tear_detected and tear_model
+                    ):  # Ensure tear_model is loaded
                         try:
                             tear_results = tear_model.predict(
                                 source=frame_resized,
@@ -1033,12 +1047,17 @@ class StitchedCameraProcessor:
 
                                     self.unique_defect_ids.add(defect_id)
                                     if defect_id in self.defect_max_areas:
-                                        if defect_area > self.defect_max_areas[defect_id]:
+                                        if (
+                                            defect_area
+                                            > self.defect_max_areas[defect_id]
+                                        ):
                                             self.total_defect_area += (
                                                 defect_area
                                                 - self.defect_max_areas[defect_id]
                                             )
-                                            self.defect_max_areas[defect_id] = defect_area
+                                            self.defect_max_areas[defect_id] = (
+                                                defect_area
+                                            )
                                     else:
                                         self.defect_max_areas[defect_id] = defect_area
                                         self.total_defect_area += defect_area
@@ -1086,7 +1105,10 @@ class StitchedCameraProcessor:
                                 result.boxes.conf,
                             )
                             for idx, class_id in enumerate(classes):
-                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
+                                if (
+                                    int(class_id) == 0
+                                    and confidences[idx] > CONF_THRESHOLD
+                                ):
                                     bedsheet_present = True
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
@@ -1094,7 +1116,7 @@ class StitchedCameraProcessor:
                     if y2_positions:
                         y2_max = max(y2_positions)
                         # If ending edge is detected
-                        if y2_max < frame_height * 0.90:
+                        if y2_max < frame_height * 0.95:
                             # If tear_detected is True, auto reject
                             if self.tear_detected:
                                 self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
@@ -1103,7 +1125,8 @@ class StitchedCameraProcessor:
                                 self.write_decision_to_file(REJECT)
 
                                 defect_percent_real_time = (
-                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
+                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA)
+                                    * 100
                                     if DEFAULT_BEDSHEET_AREA > 0
                                     else 0
                                 )
@@ -1135,7 +1158,8 @@ class StitchedCameraProcessor:
                             else:
                                 # Normal clean vs. not clean decision
                                 defect_percent_real_time = (
-                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA) * 100
+                                    (self.total_defect_area / DEFAULT_BEDSHEET_AREA)
+                                    * 100
                                     if DEFAULT_BEDSHEET_AREA > 0
                                     else 0
                                 )
@@ -1173,9 +1197,13 @@ class StitchedCameraProcessor:
                                     )
                                     self.bedsheet_count += 1
                                     self.reset_defect_tracking_variables()
-                                    log_print("Ending Edge Detected and Counted as Clean")
+                                    log_print(
+                                        "Ending Edge Detected and Counted as Clean"
+                                    )
                                 else:
-                                    self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                    self.state = (
+                                        State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
+                                    )
                                     self.await_ending_edge = True
                                     self.display_not_clean = True
                                     self.write_decision_to_file(REJECT)
@@ -1227,14 +1255,17 @@ class StitchedCameraProcessor:
                                 result.boxes.conf,
                             )
                             for idx, class_id in enumerate(classes):
-                                if int(class_id) == 0 and confidences[idx] > CONF_THRESHOLD:
+                                if (
+                                    int(class_id) == 0
+                                    and confidences[idx] > CONF_THRESHOLD
+                                ):
                                     bedsheet_present = True
                                     x1, y1, x2, y2 = map(int, boxes[idx])
                                     y2_positions.append(y2)
 
                     if y2_positions:
                         y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:
+                        if y2_max < frame_height * 0.95:
                             self.state = State.IDLE
                             self.await_ending_edge = False
                             self.display_not_clean = False
@@ -1412,10 +1443,11 @@ async def set_process_mode(mode: str):
         if stitched_camera_processor is not None:
             stitched_camera_processor.stop()
             stitched_camera_processor = None  # Clear the reference
-
-        # Set vertical mode for both camera processors
+        
+        # Start the camera processors
         for side in camera_processors:
             camera_processors[side].set_process_mode("vertical")
+            camera_processors[side].start()
         log_print("Switched to vertical mode.")
 
     return {"message": f"Process mode set to {mode}"}
@@ -1758,24 +1790,22 @@ if __name__ == "__main__":
     uvicorn_thread.start()
 
     # Initialize the CameraManager
-    camera_manager = (
-        CameraManager()
-    )  # One CameraManager instance to handle both cameras
+    camera_manager = (CameraManager())  # One CameraManager instance to handle both cameras
     camera_manager.initialize_video_capture("left", VIDEO_SOURCE_LEFT)
     camera_manager.initialize_video_capture("right", VIDEO_SOURCE_RIGHT)
 
-    # Create CameraProcessor instances
+    # Create CameraProcessor instances, but don't start them yet
     camera_processors["left"] = CameraProcessor("left", camera_manager)
     camera_processors["right"] = CameraProcessor("right", camera_manager)
-
-    # Start the camera processors
-    camera_processors["left"].start()
-    camera_processors["right"].start()
+    
+    # Start with StitchedCameraProcessor in horizontal mode
+    stitched_camera_processor = StitchedCameraProcessor(camera_manager)
+    stitched_camera_processor.start()
 
     try:
-        # Wait for both camera processors to finish
-        camera_processors["left"].main_loop_thread.join()
-        camera_processors["right"].main_loop_thread.join()
+        # Keep the main thread alive
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("KeyboardInterrupt caught. Stopping cameras and cleaning up...")
     finally:

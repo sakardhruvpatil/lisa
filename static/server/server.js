@@ -74,7 +74,7 @@ app.post('/change-speed', (req, res) => {
 
     // Update the current speed based on action
     if (action === 'increase') {
-        currentSpeed += 1; // Increase speed
+        currentSpeed = Math.min(100, currentSpeed + 1); // Increase speed
     } else if (action === 'decrease') {
         currentSpeed = Math.max(0, currentSpeed - 1); // Decrease speed, but not below 0
     }
