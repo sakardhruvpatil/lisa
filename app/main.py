@@ -118,6 +118,13 @@ class CameraProcessor:
             mode == "vertical"
         )  # Enable detection only in vertical mode
 
+        if self.process_mode != mode: 
+            time.sleep(5)
+            self.previous_frame_hor = None
+            self.previous_frame = None
+            self.state = State.IDLE
+            self.reset_defect_tracking_variables()
+
     def update_threshold(self, new_threshold):
         global CLEAN_THRESHOLD  # Access the global variable
         if not (0 <= new_threshold <= 100):
@@ -200,11 +207,11 @@ class CameraProcessor:
             raise
 
     def process_frame(self, img):
-        # Process each side independently
-        height, width, _ = img.shape
-        # cropped = img[:, CROP_LEFT : width - CROP_RIGHT]  # Crop left and right
-        # print(f"Cropped image shape: {img.shape}")  # Log the shape
-        self.detect(img)
+        # Resize the frame to 1200x1920
+        resized_img = cv2.resize(img, (3840, 1200))
+        
+        # Perform detection on the resized image
+        self.detect(resized_img)
 
     # Replace the existing write_decision_to_file method with the one below:
     def write_decision_to_file(self, decision):
@@ -477,7 +484,7 @@ class CameraProcessor:
 
                         if y2_positions:
                             y2_max = max(y2_positions)
-                            if y2_max < frame_height * 0.90:  # Ending edge detected
+                            if y2_max < frame_height * 0.97:  # Ending edge detected
                                 # If tear_detected is True, auto reject
                                 if self.tear_detected:
                                     self.state = (
@@ -608,7 +615,7 @@ class CameraProcessor:
 
                     if y2_positions:
                         y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:  # Ending edge detected
+                        if y2_max < frame_height * 0.97:  # Ending edge detected
                             self.state = State.IDLE
                             self.await_ending_edge = False
                             self.display_not_clean = False
@@ -684,7 +691,7 @@ class StitchedCameraProcessor:
         self.camera_manager = camera_manager
         self.process_mode = process_mode
         self.latest_frame = None
-        self.frame_lock = threading.Lock()
+        self.frame_lock_hor = threading.Lock()
         self.is_active = False
         self.stop_event = threading.Event()
         self.state = State.IDLE  # State management
@@ -716,7 +723,7 @@ class StitchedCameraProcessor:
         )
 
         # Initialize additional attributes
-        self.previous_frame = None  # To store the previous frame for optical flow
+        self.previous_frame_hor = None  # To store the previous frame for optical flow
         self.frame_counter = 0  # Counter to manage error state resets
         self.detection_enabled = True  # Flag to control detection
 
@@ -727,6 +734,13 @@ class StitchedCameraProcessor:
 
         self.process_mode = mode
         self.detection_enabled = True  # Enable detection in horizontal mode
+
+        if self.process_mode != mode:
+            time.sleep(5)
+            self.previous_frame = None
+            self.previous_frame_hor = None
+            self.state = State.IDLE
+            self.reset_defect_tracking_variables()
 
     def update_threshold(self, new_threshold):
         global CLEAN_THRESHOLD  # Access the global variable
@@ -801,7 +815,7 @@ class StitchedCameraProcessor:
                             stitched_frame = self.stitch_frames(left_frame, right_frame)
                             if stitched_frame is not None:
                                 # Update the latest frame reference (thread-safe)
-                                with self.frame_lock:
+                                with self.frame_lock_hor:
                                     self.latest_frame = stitched_frame
 
                                 # Run horizontal detection on the stitched frame
@@ -820,9 +834,9 @@ class StitchedCameraProcessor:
     def stitch_frames(self, left_frame, right_frame):
         """Stitch two frames horizontally after resizing."""
         try:
-            # left_frame_resized = cv2.resize(left_frame, (640, 480))
-            # right_frame_resized = cv2.resize(right_frame, (640, 480))
-            stitched_frame = np.concatenate([left_frame, right_frame], axis=1)
+            left_frame_resized = cv2.resize(left_frame, (1920, 1200))
+            right_frame_resized = cv2.resize(right_frame, (1920, 1200))
+            stitched_frame = np.concatenate([left_frame_resized, right_frame_resized], axis=1)
             return stitched_frame
         except Exception as e:
             logging.error(f"Error stitching frames: {e}")
@@ -868,15 +882,15 @@ class StitchedCameraProcessor:
         global CLEAN_THRESHOLD  # Use a global threshold variable for cleanliness
 
         # 1. Initialize previous frame if needed
-        if self.previous_frame is None:
-            self.previous_frame = stitched_frame.copy()
+        if self.previous_frame_hor is None:
+            self.previous_frame_hor = stitched_frame.copy()
             return  # Skip detection until we have an initial previous frame
 
         # 2. Check for frame size mismatch
-        if self.previous_frame.shape != stitched_frame.shape:
+        if self.previous_frame_hor.shape != stitched_frame.shape:
             error_code = 1014
             log_bug(
-                f"Frame size mismatch: previous_frame {self.previous_frame.shape}, "
+                f"Frame size mismatch: previous_frame_hor {self.previous_frame_hor.shape}, "
                 f"current_frame {stitched_frame.shape}(Error code: {error_code})"
             )
             return
@@ -984,6 +998,25 @@ class StitchedCameraProcessor:
                                         ):
                                             self.tear_detected = True
                                             log_print("Tear detected!")
+                                            
+                                            # Draw bounding box for tear
+                                            x1_t, y1_t, x2_t, y2_t = boxes[idx].int().tolist()
+                                            cv2.rectangle(
+                                                frame_resized,
+                                                (x1_t, y1_t),
+                                                (x2_t, y2_t),
+                                                (255, 0, 0),
+                                                2,
+                                            )
+                                            cv2.putText(
+                                                frame_resized,
+                                                "Tear",
+                                                (x1_t, y1_t - 10),
+                                                cv2.FONT_HERSHEY_SIMPLEX,
+                                                0.5,
+                                                (255, 0, 0),
+                                                1,
+                                            )
                                             break
                         except Exception as e:
                             error_code = 1018
@@ -1094,7 +1127,7 @@ class StitchedCameraProcessor:
                     if y2_positions:
                         y2_max = max(y2_positions)
                         # If ending edge is detected
-                        if y2_max < frame_height * 0.90:
+                        if y2_max < frame_height * 0.97:
                             # If tear_detected is True, auto reject
                             if self.tear_detected:
                                 self.state = State.TRACKING_DECIDED_NOT_CLEAN_PREMATURE
@@ -1234,7 +1267,7 @@ class StitchedCameraProcessor:
 
                     if y2_positions:
                         y2_max = max(y2_positions)
-                        if y2_max < frame_height * 0.90:
+                        if y2_max < frame_height * 0.97:
                             self.state = State.IDLE
                             self.await_ending_edge = False
                             self.display_not_clean = False
@@ -1294,7 +1327,7 @@ class StitchedCameraProcessor:
                     self.await_ending_edge = False
 
                 # Update latest_frame for streaming
-                with self.frame_lock:
+                with self.frame_lock_hor:
                     self.latest_frame = frame_resized.copy()
 
             except Exception as e:
@@ -1306,7 +1339,7 @@ class StitchedCameraProcessor:
                 self.frame_counter += 1
 
         # 6. Update the previous frame
-        self.previous_frame = stitched_frame.copy()
+        self.previous_frame_hor = stitched_frame.copy()
 
 
 # Function to start the Uvicorn server

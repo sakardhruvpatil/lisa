@@ -38,7 +38,7 @@ RIGHT_CAMERA_PFS =  os.path.join(BASE_DIR, "config/right_camera_config.pfs")
 # Model paths
 BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11.engine")
 DEFECT_MODEL_PATH = os.path.join(BASE_DIR, "models/defect.engine")
-HOR_BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor.engine")
+HOR_BEDSHEET_MODEL_PATH = os.path.join(BASE_DIR, "models/bedsheet_v11_hor_2.engine")
 TEAR_MODEL_PATH = os.path.join(BASE_DIR, "models/tear.engine")
 
 # Tracker path
