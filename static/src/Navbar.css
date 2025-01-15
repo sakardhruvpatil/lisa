@@ -1,0 +1,143 @@
+/* Navbar Styles */
+.navbar {
+  padding: 5px 20px;
+  color: #fc981e;
+  position: relative;
+}
+
+.title {
+  font-size: 44px;
+  text-decoration: none;
+  color: #fc981e;
+  font-weight: bold;
+  margin-left: 20px;
+  position: relative;
+  top: 40px; /* Adjust this to move it down */
+}
+
+/* Hamburger Menu */
+.menu {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  margin-top: 70px;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+}
+
+/* Menu selector */
+.menu div {
+  width: 28px;
+  height: 6px;
+  margin-left: 90px;
+  background-color: #fc981e;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -280px; /* Slightly move sidebar to the right */
+  width: 200px;
+  height: 100%;
+  background: linear-gradient(135deg, #fc981e, #fc981e);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+  transition: left 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  z-index: 9999;
+  padding-top: 60px;
+  overflow: auto;
+  border-top-right-radius: 30px;
+}
+
+/* When Sidebar is open, slide in and apply shadow */
+.sidebar.open {
+  left: 0;
+  border-radius: 10px; /* Remove corner curves when open */
+}
+
+/* Sidebar title */
+.sidebar-title {
+  font-size: 40px;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+  margin-bottom: 20px; /* Space below title */
+}
+
+/* Sidebar list styles */
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar ul li {
+  padding: 15px 20px;
+  margin: 10px 0;
+  border-radius: 8px; /* Rounded corners for each menu item */
+  transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
+}
+
+/* Hover effect for sidebar items */
+.sidebar ul li:hover {
+  background-color: #ffcb6b;
+  transform: scale(1.05);
+  box-shadow: 0px 0px 10px #ffcb6b; /* Glow effect on hover */
+}
+
+/* Sidebar item links */
+.sidebar ul li a {
+  text-decoration: none;
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+  display: flex;
+  margin-top: 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px; /* Space for icon and text */
+}
+
+/* Hover effect for links */
+.sidebar ul li a:hover {
+  text-shadow: 0px 0px 10px rgba(255, 255, 255, 0.8); /* Glow on text hover */
+}
+
+/* Icons for list items */
+.sidebar ul li a .icon {
+  font-size: 20px;
+}
+
+/* Close Button for Sidebar */
+.sidebar .close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 20px;
+  color: white;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 5px;
+  border-radius: 50%; /* Circular button */
+  transition: background 0.3s ease-in-out;
+}
+
+.sidebar .close-btn:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Active and hover effect only on Navbar button items */
+.navbar .menu:hover div {
+  background-color: #ffcb6b; /* Highlight background color */
+  box-shadow: 0px 0px 8px rgba(255, 203, 107, 0.8); /* Glow effect */
+}
+
+/* When sidebar is open, change color of active menu item */
+.sidebar.open .menu div {
+  background-color: #ffcb6b; /* Highlight color */
+}
